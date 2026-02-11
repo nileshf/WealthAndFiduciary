@@ -1,0 +1,191 @@
+name: Upload Post-Mortem to Confluence
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [ main ]
+
+jobs:
+  upload-post-mortem:
+    if: |
+      github.event.pull_request.merged == true && 
+      startsWith(github.event.pull_request.head.ref, 'hotfix/')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Extract Jira issue key
+        id: jira
+        run: |
+          ISSUE_KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oP '[A-Z]+-\d+' || echo "")
+          echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
+      
+      - name: Get Jira issue details
+        if: steps.jira.outputs.issue_key != ''
+        id: jira_details
+        run: |
+          ISSUE_JSON=$(curl -s -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}")
+          
+          SUMMARY=$(echo "$ISSUE_JSON" | jq -r '.fields.summary')
+          DESCRIPTION=$(echo "$ISSUE_JSON" | jq -r '.fields.description')
+          PRIORITY=$(echo "$ISSUE_JSON" | jq -r '.fields.priority.name')
+          
+          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+          echo "priority=$PRIORITY" >> $GITHUB_OUTPUT
+      
+      - name: Generate post-mortem document
+        if: steps.jira.outputs.issue_key != ''
+        run: |
+          cat > post-mortem-${{ steps.jira.outputs.issue_key }}.md << 'EOF'
+          # Post-Mortem: ${{ steps.jira.outputs.issue_key }} - ${{ steps.jira_details.outputs.summary }}
+
+          **Incident ID**: ${{ steps.jira.outputs.issue_key }}
+          **Date**: $(date -u +"%Y-%m-%d")
+          **Severity**: ${{ steps.jira_details.outputs.priority }}
+          **Status**: Resolved
+
+          ## Executive Summary
+
+          ${{ steps.jira_details.outputs.description }}
+
+          ## Timeline
+
+          - **Incident Reported**: $(date -u +"%Y-%m-%d %H:%M UTC")
+          - **Root Cause Identified**: $(date -u +"%Y-%m-%d %H:%M UTC")
+          - **Fix Implemented**: $(date -u +"%Y-%m-%d %H:%M UTC")
+          - **Fix Deployed**: $(date -u +"%Y-%m-%d %H:%M UTC")
+          - **Incident Resolved**: $(date -u +"%Y-%m-%d %H:%M UTC")
+
+          ## Root Cause Analysis
+
+          ### What Happened?
+          Production incident caused by: ${{ steps.jira_details.outputs.summary }}
+
+          ### Why Did It Happen?
+          (To be filled in by incident commander)
+
+          ### Why Wasn't It Caught Earlier?
+          (To be filled in by incident commander)
+
+          ## Resolution
+
+          ### Immediate Fix
+          **Pull Request**: [#${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})
+
+          **Changes Made**:
+          - (Extracted from PR description)
+
+          ### Regression Test Added
+          - (List regression tests added)
+
+          ## Impact Assessment
+
+          ### User Impact
+          - **Affected Users**: (To be filled in)
+          - **Failed Transactions**: (To be filled in)
+          - **Downtime**: (To be filled in)
+          - **Data Loss**: (To be filled in)
+
+          ### Business Impact
+          - **Revenue Impact**: (To be filled in)
+          - **Customer Satisfaction**: (To be filled in)
+          - **SLA Breach**: (To be filled in)
+
+          ### System Impact
+          - **Services Affected**: (To be filled in)
+          - **Database Impact**: (To be filled in)
+          - **Cascading Failures**: (To be filled in)
+
+          ## Lessons Learned
+
+          ### What Went Well ✅
+          1. (To be filled in)
+          2. (To be filled in)
+
+          ### What Didn't Go Well ❌
+          1. (To be filled in)
+          2. (To be filled in)
+
+          ## Action Items
+
+          ### Immediate (Completed)
+          - [x] Deploy hotfix to production
+          - [x] Add regression test
+          - [x] Monitor production for 24 hours
+          - [x] Create post-mortem document
+
+          ### Short-Term (Next Sprint)
+          - [ ] (To be filled in)
+          - [ ] (To be filled in)
+
+          ### Long-Term (Next Quarter)
+          - [ ] (To be filled in)
+          - [ ] (To be filled in)
+
+          ## Prevention Measures
+
+          ### Code Changes
+          1. (To be filled in)
+          2. (To be filled in)
+
+          ### Process Changes
+          1. (To be filled in)
+          2. (To be filled in)
+
+          ### Monitoring Changes
+          1. (To be filled in)
+          2. (To be filled in)
+
+          ## Related Documents
+
+          - **Jira Ticket**: [${{ steps.jira.outputs.issue_key }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.jira.outputs.issue_key }})
+          - **Pull Request**: [#${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})
+          - **Incident Report**: (Link to incident report)
+
+          ## Sign-Off
+
+          - **Incident Commander**: (Name)
+          - **On-Call Engineer**: (Name)
+          - **Reviewed By**: (Name)
+          - **Approved By**: (Name)
+
+          ---
+
+          **Note**: This is an auto-generated post-mortem template. Please fill in the details marked with "(To be filled in)".
+          EOF
+      
+      - name: Upload to Confluence
+        if: steps.jira.outputs.issue_key != ''
+        uses: atlassian/confluence-upload-action@v1
+        with:
+          url: ${{ secrets.CONFLUENCE_URL }}
+          username: ${{ secrets.CONFLUENCE_USERNAME }}
+          password: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          space: 'OPS'
+          title: 'Post-Mortem: ${{ steps.jira.outputs.issue_key }} - ${{ steps.jira_details.outputs.summary }}'
+          file: './post-mortem-${{ steps.jira.outputs.issue_key }}.md'
+          parent: 'Post-Mortems'
+      
+      - name: Add Confluence link to Jira
+        if: steps.jira.outputs.issue_key != ''
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -d '{
+              "body": "Post-mortem document uploaded to Confluence: ${{ secrets.CONFLUENCE_URL }}/display/OPS/Post-Mortem+${{ steps.jira.outputs.issue_key }}"
+            }' \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}/comment"
+      
+      - name: Transition Jira to Done
+        if: steps.jira.outputs.issue_key != ''
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -d '{"transition":{"id":"41"}}' \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}/transitions"

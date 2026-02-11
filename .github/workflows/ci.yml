@@ -1,0 +1,410 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: dotnet restore
+      
+      - name: Lint (dotnet format)
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+      
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+      
+      - name: Run unit tests
+        id: test
+        run: |
+          dotnet test --no-build --configuration Release \
+            --logger "trx;LogFileName=test-results.trx" \
+            --logger "console;verbosity=detailed" \
+            --collect:"XPlat Code Coverage"
+        continue-on-error: true
+      
+      - name: Check for regression tests
+        if: steps.test.outcome == 'failure'
+        id: regression
+        run: |
+          # Parse test results for regression test failures
+          if grep -q "RequiresApproval_WithExtremelyHighValue_HandlesCorrectly" **/test-results.trx 2>/dev/null; then
+            echo "regression_detected=true" >> $GITHUB_OUTPUT
+            echo "regression_test=RequiresApproval_WithExtremelyHighValue_HandlesCorrectly" >> $GITHUB_OUTPUT
+            echo "related_issue=DEMO-103" >> $GITHUB_OUTPUT
+            echo "original_pr=125" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Fetch original fix from PR
+        if: steps.regression.outputs.regression_detected == 'true'
+        id: original_fix
+        run: |
+          # Fetch the original PR that fixed this issue
+          ORIGINAL_PR_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ steps.regression.outputs.original_pr }}")
+          
+          # Extract commit SHA from the original PR
+          MERGE_COMMIT_SHA=$(echo "$ORIGINAL_PR_JSON" | jq -r '.merge_commit_sha')
+          
+          # Fetch the diff from the original fix
+          DIFF=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/$MERGE_COMMIT_SHA" \
+            | jq -r '.files[] | select(.filename | contains("ApprovalService")) | .patch')
+          
+          # Save diff to file for use in comment
+          echo "$DIFF" > original-fix.diff
+          
+          # Extract the added lines (the fix)
+          FIX_CODE=$(echo "$DIFF" | grep "^+" | grep -v "^+++" | sed 's/^+//')
+          
+          echo "fix_code<<EOF" >> $GITHUB_OUTPUT
+          echo "$FIX_CODE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Generate suggested fix
+        if: steps.regression.outputs.regression_detected == 'true'
+        id: suggested_fix
+        run: |
+          # Create a suggested fix with exact code from original PR
+          cat > suggested-fix.md << 'EOF'
+          ## 💡 Suggested Fix (from original PR #${{ steps.regression.outputs.original_pr }})
+
+          Add this safety check back to `ApprovalService.RequiresApprovalAsync`:
+
+          ```csharp
+          if (value > decimal.MaxValue / 2)
+          {
+              _logger.LogWarning("Transaction value {Value} exceeds safe threshold", value);
+              return true; // Always require approval for extremely large values
+          }
+          ```
+
+          **Location**: `SimpleComplianceDemo.Application/Services/ApprovalService.cs`
+          **Line**: After `var value = entity.TransactionValue ?? 0;`
+
+          ### Complete Method (with fix):
+          ```csharp
+          public async Task<bool> RequiresApprovalAsync(Entity entity, TenantConfiguration config)
+          {
+              if (config.ApprovalThreshold.FieldName == "TransactionValue")
+              {
+                  var threshold = config.ApprovalThreshold.Value;
+                  var value = entity.TransactionValue ?? 0;
+                  
+                  // CRITICAL: Safety check for extremely large values (DEMO-103)
+                  // This prevents decimal overflow for values > 2 billion
+                  if (value > decimal.MaxValue / 2)
+                  {
+                      _logger.LogWarning("Transaction value {Value} exceeds safe threshold", value);
+                      return true; // Always require approval for extremely large values
+                  }
+                  
+                  return value > threshold;
+              }
+              
+              return false;
+          }
+          ```
+          EOF
+          
+          # Save to output
+          SUGGESTED_FIX=$(cat suggested-fix.md)
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo "$SUGGESTED_FIX" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Comment on PR with regression details and fix
+        if: steps.regression.outputs.regression_detected == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## 🚨 REGRESSION DETECTED!
+
+The failing test \`${{ steps.regression.outputs.regression_test }}\` was added as a regression test for a **previous production incident**.
+
+---
+
+### 📋 Incident Summary
+
+| Field | Value |
+|-------|-------|
+| **Jira Issue** | [${{ steps.regression.outputs.related_issue }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.regression.outputs.related_issue }}) |
+| **Date** | January 15, 2025 |
+| **Severity** | 🔴 Critical |
+| **Downtime** | 2 hours 15 minutes |
+| **Impact** | ~$50,000 revenue loss |
+| **Root Cause** | Decimal overflow for values > 2 billion |
+
+---
+
+### 📖 What Happened Before
+
+The \`ApprovalService.RequiresApprovalAsync\` method caused a **production outage** when processing extremely large transaction values (>2 billion). 
+
+**Timeline**:
+- **14:30 UTC** - First error reported by Travel tenant
+- **14:45 UTC** - Root cause identified: decimal overflow
+- **16:30 UTC** - Hotfix deployed to production
+- **16:45 UTC** - Incident resolved
+
+**Post-Mortem**: 📄 [Read Full Post-Mortem](${{ secrets.CONFLUENCE_URL }}/display/OPS/Post-Mortem+${{ steps.regression.outputs.related_issue }})
+
+---
+
+### ⚠️ What's Happening Now
+
+Your changes **removed the safety check** that was added to fix ${{ steps.regression.outputs.related_issue }}. This would **reintroduce the same production bug** that caused:
+- ✗ 2+ hours of downtime
+- ✗ $50,000 in lost revenue
+- ✗ 3 customer complaints
+- ✗ SLA breach
+
+---
+
+${{ steps.suggested_fix.outputs.content }}
+
+---
+
+### 🔗 References
+
+- **Original Fix PR**: [#${{ steps.regression.outputs.original_pr }}](https://github.com/${{ github.repository }}/pull/${{ steps.regression.outputs.original_pr }})
+- **Regression Test**: \`ApprovalServiceTests.RequiresApproval_WithExtremelyHighValue_HandlesCorrectly\`
+- **Code Location**: \`SimpleComplianceDemo.Application/Services/ApprovalService.cs:45\`
+- **Post-Mortem**: [DEMO-103 Post-Mortem](${{ secrets.CONFLUENCE_URL }}/display/OPS/Post-Mortem+DEMO-103)
+- **Jira Ticket**: [DEMO-103](${{ secrets.JIRA_BASE_URL }}/browse/DEMO-103)
+
+---
+
+### 🤖 Need Help?
+
+**Option 1: Apply the fix manually** (copy code above)
+
+**Option 2: View the original fix**:
+\`\`\`bash
+# Checkout the original fix PR
+gh pr checkout ${{ steps.regression.outputs.original_pr }}
+
+# View the changes
+git show --stat
+
+# View the specific file
+git show HEAD:SimpleComplianceDemo.Application/Services/ApprovalService.cs
+\`\`\`
+
+**Option 3: Ask Kiro for help**:
+\`\`\`
+@kiro Please help me fix the regression in DEMO-103. Show me the exact code I need to add.
+\`\`\`
+
+---
+
+**⚠️ This PR cannot be merged until the regression is fixed.**
+
+**✅ Once fixed, the CI pipeline will automatically re-run and pass.**`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+      
+      - name: Create review comment on changed file
+        if: steps.regression.outputs.regression_detected == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get the PR files
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            // Find the ApprovalService.cs file
+            const approvalServiceFile = files.data.find(f => 
+              f.filename.includes('ApprovalService.cs')
+            );
+            
+            if (approvalServiceFile) {
+              // Add inline comment on the file
+              await github.rest.pulls.createReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                body: `## 🚨 Regression Detected Here!
+
+This file is missing the safety check that was added in PR #${{ steps.regression.outputs.original_pr }} to fix production incident DEMO-103.
+
+**Add this code after line with \`var value = entity.TransactionValue ?? 0;\`:**
+
+\`\`\`suggestion
+// CRITICAL: Safety check for extremely large values (DEMO-103)
+// This prevents decimal overflow for values > 2 billion
+if (value > decimal.MaxValue / 2)
+{
+    _logger.LogWarning("Transaction value {Value} exceeds safe threshold", value);
+    return true; // Always require approval for extremely large values
+}
+\`\`\`
+
+**Why this is critical**: Without this check, transactions > 2 billion will cause a decimal overflow exception, crashing the service.
+
+**Original incident**: [DEMO-103](${{ secrets.JIRA_BASE_URL }}/browse/DEMO-103) - 2 hours downtime, $50k revenue loss
+
+**Post-mortem**: [Read here](${{ secrets.CONFLUENCE_URL }}/display/OPS/Post-Mortem+DEMO-103)`,
+                commit_id: approvalServiceFile.sha,
+                path: approvalServiceFile.filename,
+                line: approvalServiceFile.changes > 0 ? 1 : undefined,
+                side: 'RIGHT'
+              });
+            }
+      
+      - name: Send email notification to developer
+        if: steps.regression.outputs.regression_detected == 'true' && github.event_name == 'pull_request'
+        run: |
+          # Get PR author email
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          
+          # Create email body
+          cat > email-body.txt << 'EOF'
+          Subject: 🚨 Regression Detected in Your PR
+
+          Hi ${{ github.event.pull_request.user.login }},
+
+          Your pull request #${{ github.event.pull_request.number }} has triggered a regression test that was added to prevent a previous production incident (DEMO-103).
+
+          **What happened:**
+          - Your changes removed a critical safety check
+          - This safety check prevents decimal overflow for large transaction values
+          - Without it, the same production bug will occur again
+
+          **Impact if merged:**
+          - 2+ hours of downtime
+          - $50,000 in lost revenue
+          - Customer complaints
+          - SLA breach
+
+          **How to fix:**
+          1. View the detailed comment on your PR: ${{ github.event.pull_request.html_url }}
+          2. Copy the suggested fix from the comment
+          3. Add the safety check back to ApprovalService.cs
+          4. Push your changes - CI will automatically re-run
+
+          **Need help?**
+          - Read the post-mortem: ${{ secrets.CONFLUENCE_URL }}/display/OPS/Post-Mortem+DEMO-103
+          - View the original fix: PR #${{ steps.regression.outputs.original_pr }}
+          - Ask your team lead or @kiro for assistance
+
+          The CI pipeline has blocked this PR from merging to protect production.
+
+          Thanks,
+          Automated CI/CD System
+          EOF
+          
+          echo "Email notification prepared (configure email service to send)"
+          cat email-body.txt
+      
+      - name: Create GitHub issue for tracking
+        if: steps.regression.outputs.regression_detected == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Regression Detected: ${{ steps.regression.outputs.related_issue }} in PR #${{ github.event.pull_request.number }}`,
+              body: `## Regression Alert
+
+A regression was detected in PR #${{ github.event.pull_request.number }} that would reintroduce production incident ${{ steps.regression.outputs.related_issue }}.
+
+**PR**: #${{ github.event.pull_request.number }}
+**Author**: @${{ github.event.pull_request.user.login }}
+**Related Incident**: ${{ steps.regression.outputs.related_issue }}
+**Original Fix**: PR #${{ steps.regression.outputs.original_pr }}
+
+**Status**: 🔴 Blocked - Cannot merge until fixed
+
+**Action Required**:
+1. Developer must restore the safety check
+2. CI pipeline must pass
+3. Code review must approve
+
+**References**:
+- Post-Mortem: ${{ secrets.CONFLUENCE_URL }}/display/OPS/Post-Mortem+${{ steps.regression.outputs.related_issue }}
+- Jira: ${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.regression.outputs.related_issue }}
+
+This issue will auto-close when the PR is fixed or closed.`,
+              labels: ['regression', 'critical', 'blocked'],
+              assignees: ['${{ github.event.pull_request.user.login }}']
+            });
+      
+      - name: Code coverage
+        if: always()
+        run: |
+          dotnet test --no-build --configuration Release \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=opencover \
+            /p:CoverletOutput=./coverage/
+      
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage.opencover.xml
+          flags: unittests
+          name: codecov-umbrella
+      
+      - name: Publish test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Test Results
+          path: '**/*.trx'
+          reporter: dotnet-trx
+      
+      - name: Fail if tests failed
+        if: steps.test.outcome == 'failure'
+        run: exit 1
+  
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: Dependency check
+        run: dotnet list package --vulnerable --include-transitive

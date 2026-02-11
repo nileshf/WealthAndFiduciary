@@ -1,0 +1,23 @@
+meta {
+  name: Upload CSV File
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{dataLoaderServiceUrl}}/api/data/upload
+  body: multipartForm
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+body:multipart-form {
+  file: @file(sample-data.csv)
+}
+
+settings {
+  encodeUrl: true
+}
