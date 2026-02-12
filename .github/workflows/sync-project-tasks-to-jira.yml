@@ -37,6 +37,7 @@ jobs:
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
+          git config --global credential.helper store
 
           # Check if there are changes
           if git diff --quiet; then
@@ -46,7 +47,10 @@ jobs:
 
           git add "Applications/*/Services/*/.kiro/specs/*/project-task.md"
           git commit -m "chore: sync Jira tasks to project-task.md files [skip ci]"
-          git push origin main
+          
+          # Use token for authentication
+          echo "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com" > ~/.git-credentials
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
