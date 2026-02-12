@@ -92,8 +92,12 @@ jobs:
             
             Write-Host "Checking file: $file"
             
-            # Get the diff
-            $diff = git diff HEAD~1 HEAD -- $file
+            # Get the diff - handle case where HEAD~1 doesn't exist
+            $diff = git diff HEAD~1 HEAD -- $file 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "No previous commit, skipping diff for $file"
+              continue
+            }
             
             # Parse changes and extract Jira issue keys and new statuses
             $lines = $diff -split "`n"
@@ -124,12 +128,16 @@ jobs:
           }
           
           # Store changes as JSON for next step
-          $changesJson = $allChanges | ConvertTo-Json -Compress
+          if ($allChanges.Count -gt 0) {
+            $changesJson = $allChanges | ConvertTo-Json -Compress
+          } else {
+            $changesJson = "[]"
+          }
           Add-Content -Path $env:GITHUB_OUTPUT -Value "changes=$changesJson"
           Write-Host "Found $($allChanges.Count) status changes"
 
       - name: Update Jira issue statuses
-        if: steps.detect.outputs.changes != ''
+        if: steps.detect.outputs.changes != '' && steps.detect.outputs.changes != '[]'
         shell: pwsh
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
@@ -137,6 +145,11 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
           $changesJson = '${{ steps.detect.outputs.changes }}'
+          if ($changesJson -eq '[]' -or [string]::IsNullOrEmpty($changesJson)) {
+            Write-Host "No changes to process"
+            exit 0
+          }
+          
           $changes = $changesJson | ConvertFrom-Json
           
           $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$env:JIRA_EMAIL`:$env:JIRA_API_TOKEN"))
