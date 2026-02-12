@@ -1,0 +1,16 @@
+{
+    "name": "Jira Sync on File Created",
+    "version": "1.0.0",
+    "description": "Syncs project-task.md with Jira when spec files are created",
+    "when": {
+        "type": "fileCreated",
+        "patterns": [
+            "**/.kiro/specs/**/*.md"
+        ]
+    },
+    "then": {
+        "type": "runCommand",
+        "command": "powershell -ExecutionPolicy Bypass -File \"Applications/AITooling/Services/DataLoaderService/.kiro/scripts/jira-sync.ps1\" -Mode SyncFromFileCreated",
+        "timeout": 60
+    }
+}

@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: wealthfid-postgres
+    environment:
+      POSTGRES_DB: wealthfid
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wealthfid-network
+
+  # DataLoaderService
+  data-loader-service:
+    build:
+      context: .
+      dockerfile: Applications/AITooling/Services/DataLoaderService/Dockerfile
+    container_name: data-loader-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: https://+:443;http://+:80
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/wealthfid
+      DATABASE_PROVIDER: PostgreSQL
+      LOG_LEVEL: Information
+    ports:
+      - "5000:80"
+      - "5001:443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./Applications/AITooling/Services/DataLoaderService:/app
+      - /app/bin
+      - /app/obj
+    networks:
+      - wealthfid-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80/api/v1/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # SecurityService
+  security-service:
+    build:
+      context: .
+      dockerfile: Applications/AITooling/Services/SecurityService/Dockerfile
+    container_name: security-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: https://+:443;http://+:80
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/wealthfid
+      DATABASE_PROVIDER: PostgreSQL
+      JWT_SECRET: your-jwt-secret-key-min-32-characters-long
+      JWT_ISSUER: https://localhost:5003
+      JWT_AUDIENCE: https://localhost:5001
+      LOG_LEVEL: Information
+    ports:
+      - "5002:80"
+      - "5003:443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./Applications/AITooling/Services/SecurityService:/app
+      - /app/bin
+      - /app/obj
+    networks:
+      - wealthfid-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80/api/v1/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # TaskJiraSyncService
+  task-jira-sync-service:
+    build:
+      context: .
+      dockerfile: Applications/AITooling/Services/TaskJiraSyncService/Dockerfile
+    container_name: task-jira-sync-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: https://+:443;http://+:80
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/wealthfid
+      DATABASE_PROVIDER: PostgreSQL
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN}
+      JIRA_EMAIL: ${JIRA_EMAIL}
+      JIRA_URL: https://wealthfid.atlassian.net
+      JIRA_PROJECT_KEY: WEALTHFID
+      CONFLUENCE_API_TOKEN: ${CONFLUENCE_API_TOKEN}
+      CONFLUENCE_EMAIL: ${CONFLUENCE_EMAIL}
+      CONFLUENCE_URL: https://wealthfid.atlassian.net/wiki
+      CONFLUENCE_SPACE_KEY: WEALTHFID
+      LOG_LEVEL: Information
+    ports:
+      - "5004:80"
+      - "5005:443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./Applications/AITooling/Services/TaskJiraSyncService:/app
+      - /app/bin
+      - /app/obj
+    networks:
+      - wealthfid-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80/api/v1/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  wealthfid-network:
+    driver: bridge

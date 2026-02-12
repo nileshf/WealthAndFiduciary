@@ -1,6 +1,4 @@
-using System;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using FsCheck;
 using FsCheck.Xunit;
@@ -16,7 +14,7 @@ namespace SecurityService.PropertyTests;
 /// </summary>
 public class TokenGenerationPropertyTests
 {
-    private AuthService CreateAuthService()
+    private static AuthService CreateAuthService()
     {
         var mockRepo = new Mock<IUserRepository>();
         var mockConfig = new Mock<IConfiguration>();

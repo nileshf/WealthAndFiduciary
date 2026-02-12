@@ -1,8 +1,5 @@
 using FsCheck;
 using FsCheck.Xunit;
-using SecurityService.Application;
-using Microsoft.Extensions.Configuration;
-using Moq;
 
 namespace SecurityService.PropertyTests;
 

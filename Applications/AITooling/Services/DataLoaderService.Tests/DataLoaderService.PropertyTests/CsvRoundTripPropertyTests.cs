@@ -207,3 +207,12 @@ public class CsvRoundTripPropertyTests
         return sb.ToString();
     }
 }
+
+/// <summary>
+/// Helper class for CSV record generation in property tests
+/// </summary>
+public class CsvRecord
+{
+    public string Name { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+}
