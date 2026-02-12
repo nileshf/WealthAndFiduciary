@@ -1,11 +1,11 @@
 ﻿# DataLoaderService Project Tasks
 
 ## Implementation Tasks
-- [ ] WEALTHFID-206 - Implement CSV file upload endpoint
-- [ ] WEALTHFID-207 - Add data validation logic
-- [ ] WEALTHFID-208 - Create database migration for data storage
-- [ ] WEALTHFID-209 - Implement background processing for large files
-- [ ] WEALTHFID-210 - Add API documentation for endpoints
+- [~] WEALTHFID-206 - Implement CSV file upload endpoint
+- [~] WEALTHFID-207 - Add data validation logic
+- [~] WEALTHFID-208 - Create database migration for data storage
+- [~] WEALTHFID-209 - Implement background processing for large files
+- [~] WEALTHFID-210 - Add API documentation for endpoints
 
 ## Testing Tasks
 - [ ] WEALTHFID-211 - Write unit tests for data parsing
