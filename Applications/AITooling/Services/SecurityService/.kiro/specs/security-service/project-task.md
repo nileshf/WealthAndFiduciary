@@ -16,8 +16,8 @@
 
 ## Infrastructure Tasks
 - [ ] Set up CI/CD pipeline (Jira: WEALTHFID-142, Status: To Do)
-- [ ] Configure Docker container (Jira: WEALTHFID-143, Status: To Do)
-- [ ] Set up PostgreSQL database (Jira: WEALTHFID-144, Status: To Do)
+- [ ] Configure Docker container (Jira: WEALTHFID-153, Status: To Do)
+- [ ] Set up PostgreSQL database 
 - [ ] Implement health check endpoints
 - [ ] Add monitoring and alerting
 
@@ -121,4 +121,18 @@
 
 
 
+
+
+
+
+
+
+
+- [ ] WEALTHFID-152 - Test Issue with Labels
+  Status: In Progress
+  URL: https://nileshf.atlassian.net/rest/api/3/issue/11253
+
+- [ ] WEALTHFID-150 - Implement health check endpoints
+  Status: To Do
+  URL: https://nileshf.atlassian.net/rest/api/3/issue/11251
 

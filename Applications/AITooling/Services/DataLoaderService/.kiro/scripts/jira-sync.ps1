@@ -259,12 +259,10 @@ function Set-JiraIssueLabels {
     
     $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$($env:JIRA_EMAIL):$($env:JIRA_API_TOKEN)"))
     
-    # Update labels using PUT request
+    # Update labels using PUT request with fields object
     $body = @{
-        update = @{
-            labels = @{
-                add = $Labels
-            }
+        fields = @{
+            labels = $Labels
         }
     } | ConvertTo-Json -Depth 10
     

@@ -124,6 +124,7 @@ function Get-JiraIssues {
         $body = @{
             jql = $jql
             maxResults = 100
+            fields = @("key", "summary", "status", "labels", "description")
         } | ConvertTo-Json
         
         $uri = "$JiraBaseUrl/rest/api/3/search/jql"
@@ -229,11 +230,18 @@ function Sync-JiraToProjectTasks {
     $errorCount = 0
     
     foreach ($issue in $issues) {
+        $issueKey = $issue.key
         $labels = $issue.fields.labels
+        
+        if ($Verbose) {
+            Write-Log "Processing issue: $issueKey" -Level Info
+            Write-Log "  Labels: $($labels -join ', ')" -Level Info
+        }
+        
         $service = Get-ServiceFromLabels -labels $labels
         
         if ($null -eq $service) {
-            Write-Log "Issue $($issue.key) has no service label, skipping" -Level Warning
+            Write-Log "Issue $issueKey has no service label, skipping" -Level Warning
             $skippedCount++
             continue
         }
