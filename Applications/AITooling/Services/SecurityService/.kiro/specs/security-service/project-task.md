@@ -128,15 +128,3 @@
 
 
 
-- [ ] WEALTHFID-152 - Test Issue with Labels
-  Status: In Progress
-  URL: https://nileshf.atlassian.net/rest/api/3/issue/11253
-
-- [ ] WEALTHFID-150 - Implement health check endpoints
-  Status: To Do
-  URL: https://nileshf.atlassian.net/rest/api/3/issue/11251
-
-- [ ] WEALTHFID-158 - Security service Task: hello
-  Status: To Do
-  URL: https://nileshf.atlassian.net/rest/api/3/issue/11259
-
