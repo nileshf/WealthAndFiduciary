@@ -1,13 +1,14 @@
 name: Sync Project Tasks to Jira
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'Applications/AITooling/Services/*/.kiro/specs/*/project-task.md'
+  # DISABLED - Use manual sync instead
+  # push:
+  #   branches: [ main ]
+  #   paths:
+  #     - 'Applications/AITooling/Services/*/.kiro/specs/*/project-task.md'
   # Automatic trigger on schedule (every 15 minutes)
-  schedule:
-    - cron: '*/15 * * * *'
+  # schedule:
+  #   - cron: '*/15 * * * *'
   # Manual trigger
   workflow_dispatch:
 
