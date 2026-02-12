@@ -20,7 +20,6 @@
 - [ ] Set up PostgreSQL database 
 - [ ] Implement health check endpoints
 - [ ] Add monitoring and alerting
-- [ ] Test task for Jira sync
 
 
 
