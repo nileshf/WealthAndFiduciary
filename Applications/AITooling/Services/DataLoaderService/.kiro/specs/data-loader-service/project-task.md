@@ -17,9 +17,12 @@
 ## Infrastructure Tasks
 - [ ] Set up CI/CD pipeline (Jira: WEALTHFID-126, Status: To Do)
 - [ ] Configure Docker container (Jira: WEALTHFID-127, Status: To Do)
-- [ ] Set up PostgreSQL database
-- [ ] Implement health check endpoints
-- [ ] Add monitoring and alerting
+- [ ] Set up PostgreSQL database (Jira: WEALTHFID-147, Status: To Do)
+- [ ] Implement health check endpoints (Jira: WEALTHFID-148, Status: To Do)
+- [ ] Add monitoring and alerting (Jira: WEALTHFID-149, Status: To Do)
+
+
+
 
 
 

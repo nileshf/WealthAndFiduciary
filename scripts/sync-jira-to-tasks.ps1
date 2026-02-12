@@ -121,15 +121,20 @@ function Get-JiraIssues {
             'Content-Type' = 'application/json'
         }
         
-        $encodedJql = [System.Web.HttpUtility]::UrlEncode($jql)
-        $uri = "$JiraBaseUrl/rest/api/3/search?jql=$encodedJql&maxResults=100"
+        $body = @{
+            jql = $jql
+            maxResults = 100
+        } | ConvertTo-Json
+        
+        $uri = "$JiraBaseUrl/rest/api/3/search/jql"
         
         Write-Log "Fetching Jira issues: $jql" -Level Info
         
         $response = Invoke-RestMethod `
             -Uri $uri `
             -Headers $headers `
-            -Method Get `
+            -Method Post `
+            -Body $body `
             -ErrorAction Stop
         
         Write-Log "Found $($response.issues.Count) issues" -Level Info
