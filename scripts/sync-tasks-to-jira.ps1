@@ -108,17 +108,38 @@ function Create-JiraIssue {
             'Content-Type' = 'application/json'
         }
         
+        # Convert description to Atlassian Document Format (ADF)
+        $adfDescription = @{
+            version = 1
+            type = "doc"
+            content = @(
+                @{
+                    type = "paragraph"
+                    content = @(
+                        @{
+                            type = "text"
+                            text = $description
+                        }
+                    )
+                }
+            )
+        }
+        
         $body = @{
             fields = @{
                 project = @{ key = $projectKey }
                 summary = $summary
-                description = $description
+                description = $adfDescription
                 labels = $labels
                 issuetype = @{ name = 'Task' }
             }
-        } | ConvertTo-Json
+        } | ConvertTo-Json -Depth 10
         
         $uri = "$JiraBaseUrl/rest/api/3/issue"
+        
+        if ($Verbose) {
+            Write-Log "Request body: $body" -Level Info
+        }
         
         $response = Invoke-RestMethod `
             -Uri $uri `
@@ -131,6 +152,9 @@ function Create-JiraIssue {
     }
     catch {
         Write-Log "Error creating Jira issue: $_" -Level Error
+        if ($Verbose) {
+            Write-Log "Response: $($_.Exception.Response | ConvertTo-Json)" -Level Error
+        }
         return $null
     }
 }
