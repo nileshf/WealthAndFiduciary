@@ -4,10 +4,10 @@ on:
   # Trigger on Jira webhook (configured in Jira)
   repository_dispatch:
     types: [jira-issue-created, jira-issue-updated]
-  
+
   # Manual trigger
   workflow_dispatch:
-  
+
   # Auto-sync on push to project-task.md files
   push:
     paths:
@@ -18,18 +18,13 @@ jobs:
   sync-jira-to-tasks:
     runs-on: ubuntu-latest
     name: Sync Jira Issues to Project Tasks
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: Setup PowerShell
-        uses: powershell/setup-powershell@v1
-        with:
-          pwsh: true
-      
+
       - name: Run Jira sync script
         shell: pwsh
         run: |
@@ -38,23 +33,23 @@ jobs:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-      
+
       - name: Commit changes
         if: success()
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          
+
           # Check if there are changes
           if git diff --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          
+
           git add "Applications/*/Services/*/.kiro/specs/*/project-task.md"
           git commit -m "chore: sync Jira tasks to project-task.md files [skip ci]"
           git push
-      
+
       - name: Report sync status
         if: always()
         uses: actions/github-script@v7
@@ -62,9 +57,9 @@ jobs:
           script: |
             const fs = require('fs');
             const status = '${{ job.status }}';
-            
+
             console.log(`Jira sync completed with status: ${status}`);
-            
+
             if (status === 'success') {
               core.notice('✅ Jira tasks successfully synced to project-task.md files');
             } else {
@@ -75,18 +70,13 @@ jobs:
     runs-on: ubuntu-latest
     name: Sync Project Tasks to Jira Issues
     needs: sync-jira-to-tasks
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: Setup PowerShell
-        uses: powershell/setup-powershell@v1
-        with:
-          pwsh: true
-      
+
       - name: Sync SecurityService tasks to Jira
         shell: pwsh
         working-directory: Applications/AITooling/Services/SecurityService
@@ -98,7 +88,7 @@ jobs:
           JIRA_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         continue-on-error: true
-      
+
       - name: Sync DataLoaderService tasks to Jira
         shell: pwsh
         working-directory: Applications/AITooling/Services/DataLoaderService
@@ -110,23 +100,23 @@ jobs:
           JIRA_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         continue-on-error: true
-      
+
       - name: Commit changes
         if: success()
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          
+
           # Check if there are changes
           if git diff --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          
+
           git add "Applications/*/Services/*/.kiro/specs/*/project-task.md"
           git commit -m "chore: sync project-task.md to Jira issues [skip ci]"
           git push
-      
+
       - name: Report sync status
         if: always()
         uses: actions/github-script@v7
@@ -134,9 +124,9 @@ jobs:
           script: |
             const fs = require('fs');
             const status = '${{ job.status }}';
-            
+
             console.log(`Tasks to Jira sync completed with status: ${status}`);
-            
+
             if (status === 'success') {
               core.notice('✅ Project tasks synced to Jira issues');
             } else {
@@ -148,11 +138,11 @@ jobs:
     name: Validate Sync Results
     needs: [sync-jira-to-tasks, sync-tasks-to-jira]
     if: always()
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Validate project-task.md files
         shell: pwsh
         run: |
@@ -160,18 +150,18 @@ jobs:
             'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md',
             'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
           )
-          
+
           $allValid = $true
-          
+
           foreach ($file in $serviceFiles) {
             if (-not (Test-Path $file)) {
               Write-Warning "File not found: $file"
               $allValid = $false
               continue
             }
-            
+
             $content = Get-Content $file -Raw
-            
+
             # Check for valid task format
             if ($content -match '- \[[ x~-]\]') {
               Write-Host "OK $file has valid task format"
@@ -179,10 +169,10 @@ jobs:
               Write-Warning "✗ $file has no valid tasks"
             }
           }
-          
+
           if (-not $allValid) {
             Write-Error "Some project-task.md files are missing"
             exit 1
           }
-          
+
           Write-Host "OK All project-task.md files validated"
