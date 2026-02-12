@@ -11,7 +11,8 @@ on:
   # Auto-sync on push to project-task.md files
   push:
     paths:
-      - 'Applications/*/Services/*/.kiro/specs/*/project-task.md'
+      - 'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md'
+      - 'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
 
 jobs:
   sync-jira-to-tasks:
