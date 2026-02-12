@@ -1,18 +1,8 @@
 name: Sync Jira to Project Tasks
 
 on:
-  # Trigger on Jira webhook (configured in Jira)
-  repository_dispatch:
-    types: [jira-issue-created, jira-issue-updated]
-
-  # Manual trigger
+  # Manual trigger only
   workflow_dispatch:
-
-  # Auto-sync on push to project-task.md files
-  push:
-    paths:
-      - 'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md'
-      - 'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
 
 jobs:
   sync-jira-to-tasks:
