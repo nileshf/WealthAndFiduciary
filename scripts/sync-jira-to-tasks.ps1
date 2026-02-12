@@ -48,7 +48,7 @@ $serviceRegistry = @{
         specName = 'security-service'
         database = 'SQL Server'
         schema = 'Security'
-        jiraProject = 'AITOOL'
+        jiraProject = 'WEALTHFID'
     }
     'data-loader-service' = @{
         application = 'AITooling'
@@ -58,7 +58,7 @@ $serviceRegistry = @{
         specName = 'data-loader-service'
         database = 'SQL Server'
         schema = 'FileProcessing'
-        jiraProject = 'AITOOL'
+        jiraProject = 'WEALTHFID'
     }
 }
 
