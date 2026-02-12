@@ -25,7 +25,7 @@ jobs:
       - name: Run Jira to project-task.md sync
         shell: pwsh
         run: |
-          .\scripts\sync-jira-to-tasks.ps1 -Verbose
+          pwsh ./scripts/sync-jira-to-tasks.ps1 -Verbose
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
@@ -45,7 +45,9 @@ jobs:
 
           git add "Applications/*/Services/*/.kiro/specs/*/project-task.md"
           git commit -m "chore: sync Jira tasks to project-task.md files [skip ci]"
-          git push
+          git push origin develop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Report Jira sync status
         if: always()
@@ -123,7 +125,7 @@ jobs:
           
           # Store changes as JSON for next step
           $changesJson = $allChanges | ConvertTo-Json -Compress
-          Write-Host "::set-output name=changes::$changesJson"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "changes=$changesJson"
           Write-Host "Found $($allChanges.Count) status changes"
 
       - name: Update Jira issue statuses
