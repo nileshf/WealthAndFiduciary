@@ -87,17 +87,36 @@ function Get-JiraAuth {
     return [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$JiraEmail`:$JiraToken"))
 }
 
+function Get-JiraStatusFromCheckbox {
+    param([string]$checkbox)
+    
+    # Map checkbox status to Jira status
+    # [ ] = TO DO
+    # [-] = IN PROGRESS
+    # [~] = IN REVIEW
+    # [x] = DONE
+    
+    switch ($checkbox) {
+        '[ ]' { return 'To Do' }
+        '[-]' { return 'In Progress' }
+        '[~]' { return 'In Review' }
+        '[x]' { return 'Done' }
+        default { return 'To Do' }
+    }
+}
+
 function Create-JiraIssue {
     param(
         [string]$projectKey,
         [string]$summary,
         [string]$description,
         [string[]]$labels,
+        [string]$status = 'To Do',
         [switch]$DryRun
     )
     
     if ($DryRun) {
-        Write-Log "[DRY RUN] Would create issue: $summary" -Level Info
+        Write-Log "[DRY RUN] Would create issue: $summary (Status: $status)" -Level Info
         return $null
     }
     
@@ -148,6 +167,11 @@ function Create-JiraIssue {
             -Body $body `
             -ErrorAction Stop
         
+        # Transition issue to correct status if not "To Do"
+        if ($status -ne 'To Do') {
+            Transition-JiraIssue -issueKey $response.key -status $status
+        }
+        
         return $response.key
     }
     catch {
@@ -156,6 +180,57 @@ function Create-JiraIssue {
             Write-Log "Response: $($_.Exception.Response | ConvertTo-Json)" -Level Error
         }
         return $null
+    }
+}
+
+function Transition-JiraIssue {
+    param(
+        [string]$issueKey,
+        [string]$status
+    )
+    
+    try {
+        $auth = Get-JiraAuth
+        $headers = @{
+            'Authorization' = "Basic $auth"
+            'Content-Type' = 'application/json'
+        }
+        
+        # Get available transitions
+        $uri = "$JiraBaseUrl/rest/api/3/issue/$issueKey/transitions"
+        $transitionsResponse = Invoke-RestMethod `
+            -Uri $uri `
+            -Headers $headers `
+            -Method Get `
+            -ErrorAction Stop
+        
+        # Find transition to target status
+        $transition = $transitionsResponse.transitions | Where-Object { $_.to.name -eq $status } | Select-Object -First 1
+        
+        if ($null -eq $transition) {
+            Write-Log "No transition found to status '$status' for issue $issueKey" -Level Warning
+            return
+        }
+        
+        # Perform transition
+        $transitionBody = @{
+            transition = @{
+                id = $transition.id
+            }
+        } | ConvertTo-Json
+        
+        $transitionUri = "$JiraBaseUrl/rest/api/3/issue/$issueKey/transitions"
+        Invoke-RestMethod `
+            -Uri $transitionUri `
+            -Headers $headers `
+            -Method Post `
+            -Body $transitionBody `
+            -ErrorAction Stop
+        
+        Write-Log "Transitioned issue $issueKey to status '$status'" -Level Success
+    }
+    catch {
+        Write-Log "Error transitioning issue $issueKey to status '$status': $_" -Level Warning
     }
 }
 
@@ -170,13 +245,15 @@ function Parse-ProjectTaskFile {
     $tasks = @()
     
     # Match task lines: - [ ] TASK-123 - Description or - [ ] Description
-    $pattern = '- \[[ x~-]\]\s+(?:([A-Z]+-\d+)\s+-\s+)?(.+?)(?:\n|$)'
+    # Capture checkbox status: [ ], [-], [~], [x]
+    $pattern = '- (\[[ x~-]\])\s+(?:([A-Z]+-\d+)\s+-\s+)?(.+?)(?:\n|$)'
     
     $matches = [regex]::Matches($content, $pattern)
     
     foreach ($match in $matches) {
-        $issueKey = $match.Groups[1].Value
-        $description = $match.Groups[2].Value.Trim()
+        $checkbox = $match.Groups[1].Value
+        $issueKey = $match.Groups[2].Value
+        $description = $match.Groups[3].Value.Trim()
         
         # Skip if already has Jira issue key
         if (-not [string]::IsNullOrEmpty($issueKey)) {
@@ -189,12 +266,51 @@ function Parse-ProjectTaskFile {
         }
         
         $tasks += @{
+            checkbox = $checkbox
             description = $description
             hasJiraKey = -not [string]::IsNullOrEmpty($issueKey)
         }
     }
     
     return $tasks
+}
+
+function Update-ProjectTaskFile {
+    param(
+        [string]$filePath,
+        [string]$taskDescription,
+        [string]$issueKey,
+        [string]$status
+    )
+    
+    if (-not (Test-Path $filePath)) {
+        return $false
+    }
+    
+    try {
+        $content = Get-Content $filePath -Raw
+        
+        # Find the task line and replace it with the Jira issue key
+        # Pattern: - [ ] Description → - [ ] ISSUE-KEY - Description
+        $pattern = "- (\[[ x~-]\])\s+\Q$taskDescription\E(?:\n|$)"
+        $replacement = "- `$1 $issueKey - $taskDescription`n"
+        
+        $newContent = [regex]::Replace($content, $pattern, $replacement)
+        
+        if ($newContent -ne $content) {
+            Set-Content -Path $filePath -Value $newContent -NoNewline
+            Write-Log "Updated $filePath with issue key $issueKey" -Level Success
+            return $true
+        }
+        else {
+            Write-Log "Could not find task '$taskDescription' in $filePath" -Level Warning
+            return $false
+        }
+    }
+    catch {
+        Write-Log "Error updating project task file: $_" -Level Error
+        return $false
+    }
 }
 
 function Sync-TasksToJira {
@@ -209,6 +325,7 @@ function Sync-TasksToJira {
     $createdCount = 0
     $skippedCount = 0
     $errorCount = 0
+    $updatedFiles = @()
     
     foreach ($serviceKey in $serviceRegistry.Keys) {
         $serviceConfig = $serviceRegistry[$serviceKey]
@@ -236,16 +353,33 @@ function Sync-TasksToJira {
             
             Write-Log "Creating Jira issue for: $($task.description)" -Level Info
             
+            # Get Jira status from checkbox
+            $jiraStatus = Get-JiraStatusFromCheckbox -checkbox $task.checkbox
+            
             $issueKey = Create-JiraIssue `
                 -projectKey $serviceConfig.jiraProject `
                 -summary $task.description `
                 -description "Created from project-task.md for $($serviceConfig.service)" `
                 -labels @($serviceConfig.jiraLabel) `
+                -status $jiraStatus `
                 -DryRun:$DryRun
             
             if ($null -ne $issueKey) {
-                Write-Log "Created Jira issue: $issueKey" -Level Success
+                Write-Log "Created Jira issue: $issueKey (Status: $jiraStatus)" -Level Success
                 $createdCount++
+                
+                # Update project-task.md file with issue key
+                if (-not $DryRun) {
+                    $updated = Update-ProjectTaskFile `
+                        -filePath $projectTaskFile `
+                        -taskDescription $task.description `
+                        -issueKey $issueKey `
+                        -status $jiraStatus
+                    
+                    if ($updated) {
+                        $updatedFiles += $projectTaskFile
+                    }
+                }
             }
             else {
                 $errorCount++
@@ -254,11 +388,44 @@ function Sync-TasksToJira {
     }
     
     Write-Log "Sync completed: $createdCount created, $skippedCount skipped, $errorCount errors" -Level Info
+    
+    # Return list of updated files for git commit
+    return @{
+        createdCount = $createdCount
+        skippedCount = $skippedCount
+        errorCount = $errorCount
+        updatedFiles = $updatedFiles | Select-Object -Unique
+    }
 }
 
 # Main execution
 try {
-    Sync-TasksToJira -DryRun:$DryRun
+    $result = Sync-TasksToJira -DryRun:$DryRun
+    
+    if (-not $DryRun -and $result.updatedFiles.Count -gt 0) {
+        Write-Log "Committing updated project-task.md files..." -Level Info
+        
+        # Configure git
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        
+        # Add updated files
+        foreach ($file in $result.updatedFiles) {
+            git add $file
+        }
+        
+        # Check if there are changes to commit
+        $gitStatus = git status --porcelain
+        if ($gitStatus) {
+            git commit -m "chore: sync project-task.md with Jira issue keys [skip ci]"
+            git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git main
+            Write-Log "Successfully pushed updated project-task.md files" -Level Success
+        }
+        else {
+            Write-Log "No changes to commit" -Level Info
+        }
+    }
+    
     exit 0
 }
 catch {
