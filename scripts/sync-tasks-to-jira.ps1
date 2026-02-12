@@ -6,21 +6,6 @@
 .DESCRIPTION
     This script reads project-task.md files and creates corresponding Jira issues
     for any tasks that don't already have a Jira issue key.
-    
-.PARAMETER JiraBaseUrl
-    Base URL of Jira instance
-    
-.PARAMETER JiraEmail
-    Email address for Jira API authentication
-    
-.PARAMETER JiraToken
-    API token for Jira authentication
-    
-.PARAMETER DryRun
-    If specified, shows what would be created without making changes
-    
-.EXAMPLE
-    .\sync-tasks-to-jira.ps1 -DryRun
 #>
 
 param(
@@ -30,6 +15,8 @@ param(
     [switch]$DryRun = $false,
     [switch]$Verbose = $false
 )
+
+$ErrorActionPreference = 'Stop'
 
 # Service registry mapping
 $serviceRegistry = @{
@@ -90,12 +77,6 @@ function Get-JiraAuth {
 function Get-JiraStatusFromCheckbox {
     param([string]$checkbox)
     
-    # Map checkbox status to Jira status
-    # [ ] = TO DO
-    # [-] = IN PROGRESS
-    # [~] = IN REVIEW
-    # [x] = DONE
-    
     switch ($checkbox) {
         '[ ]' { return 'To Do' }
         '[-]' { return 'In Progress' }
@@ -111,14 +92,8 @@ function Create-JiraIssue {
         [string]$summary,
         [string]$description,
         [string[]]$labels,
-        [string]$status = 'To Do',
-        [switch]$DryRun
+        [string]$status = 'To Do'
     )
-    
-    if ($DryRun) {
-        Write-Log "[DRY RUN] Would create issue: $summary (Status: $status)" -Level Info
-        return $null
-    }
     
     try {
         $auth = Get-JiraAuth
@@ -156,10 +131,6 @@ function Create-JiraIssue {
         
         $uri = "$JiraBaseUrl/rest/api/3/issue"
         
-        if ($Verbose) {
-            Write-Log "Request body: $body" -Level Info
-        }
-        
         $response = Invoke-RestMethod `
             -Uri $uri `
             -Headers $headers `
@@ -176,9 +147,6 @@ function Create-JiraIssue {
     }
     catch {
         Write-Log "Error creating Jira issue: $_" -Level Error
-        if ($Verbose) {
-            Write-Log "Response: $($_.Exception.Response | ConvertTo-Json)" -Level Error
-        }
         return $null
     }
 }
@@ -244,31 +212,36 @@ function Parse-ProjectTaskFile {
     $content = Get-Content $filePath -Raw
     $tasks = @()
     
-    # Match task lines: - [ ] TASK-123 - Description or - [ ] Description
-    # Capture checkbox status: [ ], [-], [~], [x]
-    $pattern = '- (\[[ x~-]\])\s+(?:([A-Z]+-\d+)\s+-\s+)?(.+?)(?:\n|$)'
+    # Match task lines: - [ ] Description (without Jira key)
+    # Pattern captures: checkbox and description
+    $lines = $content -split "`n"
     
-    $matches = [regex]::Matches($content, $pattern)
-    
-    foreach ($match in $matches) {
-        $checkbox = $match.Groups[1].Value
-        $issueKey = $match.Groups[2].Value
-        $description = $match.Groups[3].Value.Trim()
-        
-        # Skip if already has Jira issue key
-        if (-not [string]::IsNullOrEmpty($issueKey)) {
+    foreach ($line in $lines) {
+        # Skip lines that don't start with task marker
+        if ($line -notmatch '^\s*-\s+\[') {
             continue
         }
         
-        # Skip empty descriptions
-        if ([string]::IsNullOrEmpty($description)) {
-            continue
-        }
-        
-        $tasks += @{
-            checkbox = $checkbox
-            description = $description
-            hasJiraKey = -not [string]::IsNullOrEmpty($issueKey)
+        # Extract checkbox and rest of line
+        if ($line -match '^\s*-\s+(\[[ x~-]\])\s+(.+)$') {
+            $checkbox = $matches[1]
+            $rest = $matches[2].Trim()
+            
+            # Skip if already has Jira key (format: ISSUE-123 - Description)
+            if ($rest -match '^[A-Z]+-\d+\s+-\s+') {
+                continue
+            }
+            
+            # Skip empty descriptions
+            if ([string]::IsNullOrWhiteSpace($rest)) {
+                continue
+            }
+            
+            $tasks += @{
+                checkbox = $checkbox
+                description = $rest
+                line = $line
+            }
         }
     }
     
@@ -279,8 +252,7 @@ function Update-ProjectTaskFile {
     param(
         [string]$filePath,
         [string]$taskDescription,
-        [string]$issueKey,
-        [string]$status
+        [string]$issueKey
     )
     
     if (-not (Test-Path $filePath)) {
@@ -290,17 +262,13 @@ function Update-ProjectTaskFile {
     try {
         $content = Get-Content $filePath -Raw
         
-        # Escape special regex characters in the description
-        $escapedDescription = [regex]::Escape($taskDescription)
+        # Find and replace the task line
+        # Match: - [ ] Description → - [ ] ISSUE-KEY - Description
+        $oldLine = "- [ ] $taskDescription"
+        $newLine = "- [ ] $issueKey - $taskDescription"
         
-        # Find the task line and replace it with the Jira issue key
-        # Pattern: - [ ] Description → - [ ] ISSUE-KEY - Description
-        $pattern = "- (\[[ x~-]\])\s+$escapedDescription(?:\r?\n|$)"
-        $replacement = "- `$1 $issueKey - $taskDescription`r`n"
-        
-        $newContent = [regex]::Replace($content, $pattern, $replacement)
-        
-        if ($newContent -ne $content) {
+        if ($content -contains $oldLine) {
+            $newContent = $content -replace [regex]::Escape($oldLine), $newLine
             Set-Content -Path $filePath -Value $newContent -NoNewline
             Write-Log "Updated $filePath with issue key $issueKey" -Level Success
             return $true
@@ -349,43 +317,40 @@ function Sync-TasksToJira {
         }
         
         foreach ($task in $tasks) {
-            if ($task.hasJiraKey) {
-                $skippedCount++
-                continue
-            }
-            
             Write-Log "Creating Jira issue for: $($task.description)" -Level Info
             
             # Get Jira status from checkbox
             $jiraStatus = Get-JiraStatusFromCheckbox -checkbox $task.checkbox
             
-            $issueKey = Create-JiraIssue `
-                -projectKey $serviceConfig.jiraProject `
-                -summary $task.description `
-                -description "Created from project-task.md for $($serviceConfig.service)" `
-                -labels @($serviceConfig.jiraLabel) `
-                -status $jiraStatus `
-                -DryRun:$DryRun
-            
-            if ($null -ne $issueKey) {
-                Write-Log "Created Jira issue: $issueKey (Status: $jiraStatus)" -Level Success
+            if ($DryRun) {
+                Write-Log "[DRY RUN] Would create issue: $($task.description) (Status: $jiraStatus)" -Level Info
                 $createdCount++
+            }
+            else {
+                $issueKey = Create-JiraIssue `
+                    -projectKey $serviceConfig.jiraProject `
+                    -summary $task.description `
+                    -description "Created from project-task.md for $($serviceConfig.service)" `
+                    -labels @($serviceConfig.jiraLabel) `
+                    -status $jiraStatus
                 
-                # Update project-task.md file with issue key
-                if (-not $DryRun) {
+                if ($null -ne $issueKey) {
+                    Write-Log "Created Jira issue: $issueKey (Status: $jiraStatus)" -Level Success
+                    $createdCount++
+                    
+                    # Update project-task.md file with issue key
                     $updated = Update-ProjectTaskFile `
                         -filePath $projectTaskFile `
                         -taskDescription $task.description `
-                        -issueKey $issueKey `
-                        -status $jiraStatus
+                        -issueKey $issueKey
                     
                     if ($updated) {
                         $updatedFiles += $projectTaskFile
                     }
                 }
-            }
-            else {
-                $errorCount++
+                else {
+                    $errorCount++
+                }
             }
         }
     }
