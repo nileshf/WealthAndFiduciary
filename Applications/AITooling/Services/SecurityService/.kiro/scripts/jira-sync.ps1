@@ -40,12 +40,12 @@ if (-not (Test-Path $EnvFile)) {
 }
 
 Write-Host "Loading environment from: $EnvFile" -ForegroundColor Gray
-$env:JIRA_BASE_URI = (Get-Content $EnvFile | Select-String 'JIRA_BASE_URI=' | ForEach-Object { $_.Line -replace '^JIRA_BASE_URI=', '' }).Trim()
+$env:JIRA_BASE_URL = (Get-Content $EnvFile | Select-String 'JIRA_BASE_URL=' | ForEach-Object { $_.Line -replace '^JIRA_BASE_URL=', '' }).Trim()
 $env:JIRA_PROJECT_KEY = (Get-Content $EnvFile | Select-String 'JIRA_PROJECT_KEY=' | ForEach-Object { $_.Line -replace '^JIRA_PROJECT_KEY=', '' }).Trim()
 $env:JIRA_EMAIL = (Get-Content $EnvFile | Select-String 'JIRA_EMAIL=' | ForEach-Object { $_.Line -replace '^JIRA_EMAIL=', '' }).Trim()
 $env:JIRA_API_TOKEN = (Get-Content $EnvFile | Select-String 'JIRA_API_TOKEN=' | ForEach-Object { $_.Line -replace '^JIRA_API_TOKEN=', '' }).Trim()
 
-if (-not $env:JIRA_BASE_URI -or -not $env:JIRA_PROJECT_KEY -or -not $env:JIRA_EMAIL -or -not $env:JIRA_API_TOKEN) {
+if (-not $env:JIRA_BASE_URL -or -not $env:JIRA_PROJECT_KEY -or -not $env:JIRA_EMAIL -or -not $env:JIRA_API_TOKEN) {
     Write-Host "ERROR: Missing Jira configuration in .env file" -ForegroundColor Red
     exit 1
 }
@@ -124,7 +124,7 @@ function New-JiraIssue {
     while ($retryCount -lt $maxRetries) {
         try {
             $response = Invoke-RestMethod `
-                -Uri "$($env:JIRA_BASE_URI)/rest/api/3/issue" `
+                -Uri "$($env:JIRA_BASE_URL)/rest/api/3/issue" `
                 -Method Post `
                 -Headers @{
                     'Authorization' = "Basic $auth"
@@ -163,7 +163,7 @@ function Get-JiraIssueStatus {
     while ($retryCount -lt $maxRetries) {
         try {
             $response = Invoke-RestMethod `
-                -Uri "$($env:JIRA_BASE_URI)/rest/api/3/issue/$IssueKey" `
+                -Uri "$($env:JIRA_BASE_URL)/rest/api/3/issue/$IssueKey" `
                 -Method Get `
                 -Headers @{
                     'Authorization' = "Basic $auth"
@@ -200,7 +200,7 @@ function Set-JiraIssueStatus {
     while ($retryCount -lt $maxRetries) {
         try {
             $transitionsResponse = Invoke-RestMethod `
-                -Uri "$($env:JIRA_BASE_URI)/rest/api/3/issue/$IssueKey/transitions" `
+                -Uri "$($env:JIRA_BASE_URL)/rest/api/3/issue/$IssueKey/transitions" `
                 -Method Get `
                 -Headers @{
                     'Authorization' = "Basic $auth"
@@ -220,7 +220,7 @@ function Set-JiraIssueStatus {
                 } | ConvertTo-Json -Depth 10
                 
                 Invoke-RestMethod `
-                    -Uri "$($env:JIRA_BASE_URI)/rest/api/3/issue/$IssueKey/transitions" `
+                    -Uri "$($env:JIRA_BASE_URL)/rest/api/3/issue/$IssueKey/transitions" `
                     -Method Post `
                     -Headers @{
                         'Authorization' = "Basic $auth"
