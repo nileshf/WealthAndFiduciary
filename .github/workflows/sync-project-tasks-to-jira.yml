@@ -1,0 +1,245 @@
+name: Sync Project Tasks to Jira
+
+on:
+  push:
+    branches: [ develop ]
+    paths:
+      - 'Applications/AITooling/Services/*/.kiro/specs/*/project-task.md'
+  # Automatic trigger on schedule (every 15 minutes)
+  schedule:
+    - cron: '*/15 * * * *'
+  # Manual trigger
+  workflow_dispatch:
+
+jobs:
+  sync-jira-to-tasks:
+    runs-on: ubuntu-latest
+    name: Sync Jira Issues to Project Tasks
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Jira to project-task.md sync
+        shell: pwsh
+        run: |
+          .\scripts\sync-jira-to-tasks.ps1 -Verbose
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      - name: Commit Jira sync changes
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Check if there are changes
+          if git diff --quiet; then
+            echo "No changes from Jira sync"
+            exit 0
+          fi
+
+          git add "Applications/*/Services/*/.kiro/specs/*/project-task.md"
+          git commit -m "chore: sync Jira tasks to project-task.md files [skip ci]"
+          git push
+
+      - name: Report Jira sync status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            if (status === 'success') {
+              core.notice('✅ Jira tasks successfully synced to project-task.md files');
+            } else {
+              core.warning('⚠️ Jira sync encountered issues. Check logs for details.');
+            }
+
+  sync-tasks-to-jira:
+    runs-on: ubuntu-latest
+    name: Sync Project Task Status Changes to Jira
+    needs: sync-jira-to-tasks
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v40
+        with:
+          files: |
+            Applications/AITooling/Services/*/.kiro/specs/*/project-task.md
+
+      - name: Detect status changes
+        id: detect
+        shell: pwsh
+        run: |
+          $changedFiles = "${{ steps.changed-files.outputs.all_changed_files }}" -split ' '
+          $allChanges = @()
+          
+          foreach ($file in $changedFiles) {
+            if ([string]::IsNullOrWhiteSpace($file)) { continue }
+            
+            Write-Host "Checking file: $file"
+            
+            # Get the diff
+            $diff = git diff HEAD~1 HEAD -- $file
+            
+            # Parse changes and extract Jira issue keys and new statuses
+            $lines = $diff -split "`n"
+            
+            foreach ($line in $lines) {
+              # Look for lines with Jira issue keys (e.g., WEALTHFID-123)
+              if ($line -match '\[(.)\]\s+([A-Z]+-\d+)') {
+                $checkbox = $matches[1]
+                $issueKey = $matches[2]
+                
+                Write-Host "Found issue: $issueKey with status: $checkbox"
+                
+                # Map checkbox to Jira status
+                $jiraStatus = switch ($checkbox) {
+                  ' ' { 'To Do' }
+                  '-' { 'In Progress' }
+                  '~' { 'Testing' }
+                  'x' { 'Done' }
+                  default { 'To Do' }
+                }
+                
+                $allChanges += @{
+                  issueKey = $issueKey
+                  status = $jiraStatus
+                }
+              }
+            }
+          }
+          
+          # Store changes as JSON for next step
+          $changesJson = $allChanges | ConvertTo-Json -Compress
+          Write-Host "::set-output name=changes::$changesJson"
+          Write-Host "Found $($allChanges.Count) status changes"
+
+      - name: Update Jira issue statuses
+        if: steps.detect.outputs.changes != ''
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          $changesJson = '${{ steps.detect.outputs.changes }}'
+          $changes = $changesJson | ConvertFrom-Json
+          
+          $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$env:JIRA_EMAIL`:$env:JIRA_API_TOKEN"))
+          
+          foreach ($change in $changes) {
+            $issueKey = $change.issueKey
+            $targetStatus = $change.status
+            
+            Write-Host "Updating $issueKey to status: $targetStatus"
+            
+            try {
+              # Get available transitions
+              $transitionsResponse = Invoke-RestMethod `
+                -Uri "$env:JIRA_BASE_URL/rest/api/3/issue/$issueKey/transitions" `
+                -Method Get `
+                -Headers @{
+                  'Authorization' = "Basic $auth"
+                  'Content-Type' = 'application/json'
+                } `
+                -ErrorAction Stop
+              
+              # Find transition to target status
+              $transition = $transitionsResponse.transitions | Where-Object { $_.to.name -eq $targetStatus }
+              
+              if ($transition) {
+                $body = @{
+                  transition = @{
+                    id = $transition.id
+                  }
+                } | ConvertTo-Json
+                
+                Invoke-RestMethod `
+                  -Uri "$env:JIRA_BASE_URL/rest/api/3/issue/$issueKey/transitions" `
+                  -Method Post `
+                  -Headers @{
+                    'Authorization' = "Basic $auth"
+                    'Content-Type' = 'application/json'
+                  } `
+                  -Body $body `
+                  -ErrorAction Stop
+                
+                Write-Host "✓ Updated $issueKey to $targetStatus"
+              } else {
+                Write-Host "✗ Could not find transition to $targetStatus for $issueKey"
+              }
+            }
+            catch {
+              Write-Host "✗ Error updating $issueKey : $_"
+            }
+          }
+
+      - name: Report status sync results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            if (status === 'success') {
+              core.notice('✅ Project task status changes synced to Jira');
+            } else if (status === 'skipped') {
+              core.notice('⏭️ No status changes detected in project-task.md files');
+            } else {
+              core.warning('⚠️ Status sync encountered issues. Check logs for details.');
+            }
+
+  validate-sync:
+    runs-on: ubuntu-latest
+    name: Validate Sync Results
+    needs: [sync-jira-to-tasks, sync-tasks-to-jira]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate project-task.md files
+        shell: pwsh
+        run: |
+          $serviceFiles = @(
+            'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md',
+            'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
+          )
+
+          $allValid = $true
+
+          foreach ($file in $serviceFiles) {
+            if (-not (Test-Path $file)) {
+              Write-Warning "File not found: $file"
+              $allValid = $false
+              continue
+            }
+
+            $content = Get-Content $file -Raw
+
+            # Check for valid task format
+            if ($content -match '- \[[ x~-]\]') {
+              Write-Host "✓ $file has valid task format"
+            } else {
+              Write-Warning "✗ $file has no valid tasks"
+            }
+          }
+
+          if (-not $allValid) {
+            Write-Error "Some project-task.md files are missing"
+            exit 1
+          }
+
+          Write-Host "✓ All project-task.md files validated"
