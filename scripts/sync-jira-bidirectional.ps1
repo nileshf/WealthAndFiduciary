@@ -148,6 +148,7 @@ function Sync-MarkdownToJira {
     
     $headers = Get-JiraHeaders
     $created = 0
+    $updated = 0
     
     foreach ($service in $services) {
         if (-not (Test-Path $service.file)) {
@@ -158,11 +159,24 @@ function Sync-MarkdownToJira {
         $content = Get-Content $service.file -Raw
         $lines = $content -split "`n"
         $newTasks = @()
+        $existingTasks = @()
         
         foreach ($line in $lines) {
-            # Match: - [ ] Description (without Jira key)
-            # Pattern: - [checkbox] description (where description doesn't start with JIRA-key)
-            if ($line -match '^\s*-\s+(\[[ x~-]\])\s+(?![A-Z]+-\d+)(.+)$') {
+            # Match: - [checkbox] KEY - Description (existing issue with key)
+            if ($line -match '^\s*-\s+(\[[ x~-]\])\s+([A-Z]+-\d+)\s+-\s+(.+)$') {
+                $checkbox = $matches[1]
+                $key = $matches[2]
+                $description = $matches[3].Trim()
+                
+                $existingTasks += @{
+                    checkbox = $checkbox
+                    key = $key
+                    description = $description
+                    line = $line
+                }
+            }
+            # Match: - [checkbox] Description (without Jira key)
+            elseif ($line -match '^\s*-\s+(\[[ x~-]\])\s+(?![A-Z]+-\d+)(.+)$') {
                 $checkbox = $matches[1]
                 $description = $matches[2].Trim()
                 
@@ -179,86 +193,130 @@ function Sync-MarkdownToJira {
             }
         }
         
-        if ($newTasks.Count -eq 0) {
-            Write-Host "  $($service.name): No new tasks"
-            continue
-        }
-        
-        Write-Host "  $($service.name): $($newTasks.Count) new task(s)"
-        
-        foreach ($task in $newTasks) {
-            $status = Get-StatusFromCheckbox -checkbox $task.checkbox
+        # Process new tasks (create issues)
+        if ($newTasks.Count -gt 0) {
+            Write-Host "  $($service.name): $($newTasks.Count) new task(s)"
             
-            try {
-                # Create issue with proper Atlassian Document Format
-                $body = @{
-                    fields = @{
-                        project = @{ key = $service.project }
-                        summary = $task.description
-                        description = @{
-                            version = 1
-                            type = "doc"
-                            content = @(@{
-                                type = "paragraph"
+            foreach ($task in $newTasks) {
+                $status = Get-StatusFromCheckbox -checkbox $task.checkbox
+                
+                try {
+                    # Create issue with proper Atlassian Document Format
+                    $body = @{
+                        fields = @{
+                            project = @{ key = $service.project }
+                            summary = $task.description
+                            description = @{
+                                version = 1
+                                type = "doc"
                                 content = @(@{
-                                    type = "text"
-                                    text = "Created from project-task.md"
+                                    type = "paragraph"
+                                    content = @(@{
+                                        type = "text"
+                                        text = "Created from project-task.md"
+                                    })
                                 })
-                            })
+                            }
+                            labels = @($service.label)
+                            issuetype = @{ name = 'Task' }
                         }
-                        labels = @($service.label)
-                        issuetype = @{ name = 'Task' }
+                    } | ConvertTo-Json -Depth 10
+                    
+                    if ($DryRun) {
+                        Write-Host "    [DRY RUN] Would create: $($task.description)"
+                        continue
                     }
-                } | ConvertTo-Json -Depth 10
-                
-                if ($DryRun) {
-                    Write-Host "    [DRY RUN] Would create: $($task.description)"
-                    continue
-                }
-                
-                $uri = "$JiraBaseUrl/rest/api/3/issue"
-                $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $body
-                $issueKey = $response.key
-                
-                Write-Host "    CREATED: $issueKey"
-                
-                # Transition to correct status if not "To Do"
-                if ($status -ne 'To Do') {
-                    try {
-                        $transUri = "$JiraBaseUrl/rest/api/3/issue/$issueKey/transitions"
-                        $transResponse = Invoke-RestMethod -Uri $transUri -Headers $headers -Method Get
-                        $trans = $transResponse.transitions | Where-Object { $_.to.name -eq $status } | Select-Object -First 1
-                        
-                        if ($trans) {
-                            $transBody = @{ transition = @{ id = $trans.id } } | ConvertTo-Json
-                            Invoke-RestMethod -Uri $transUri -Headers $headers -Method Post -Body $transBody | Out-Null
-                            Write-Host "      TRANSITIONED: $status"
+                    
+                    $uri = "$JiraBaseUrl/rest/api/3/issue"
+                    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $body
+                    $issueKey = $response.key
+                    
+                    Write-Host "    CREATED: $issueKey"
+                    
+                    # Transition to correct status if not "To Do"
+                    if ($status -ne 'To Do') {
+                        try {
+                            $transUri = "$JiraBaseUrl/rest/api/3/issue/$issueKey/transitions"
+                            $transResponse = Invoke-RestMethod -Uri $transUri -Headers $headers -Method Get
+                            $trans = $transResponse.transitions | Where-Object { $_.to.name -eq $status } | Select-Object -First 1
+                            
+                            if ($trans) {
+                                $transBody = @{ transition = @{ id = $trans.id } } | ConvertTo-Json
+                                Invoke-RestMethod -Uri $transUri -Headers $headers -Method Post -Body $transBody | Out-Null
+                                Write-Host "      TRANSITIONED: $status"
+                            }
+                        }
+                        catch {
+                            Write-Host "      WARNING: Could not transition status: $_"
                         }
                     }
-                    catch {
-                        Write-Host "      WARNING: Could not transition status: $_"
-                    }
+                    
+                    # Update markdown file with issue key
+                    $oldLine = $task.line
+                    $newLine = "- $($task.checkbox) $issueKey - $($task.description)"
+                    $content = $content -replace [regex]::Escape($oldLine), $newLine
+                    
+                    $created++
                 }
-                
-                # Update markdown file with issue key
-                $oldLine = $task.line
-                $newLine = "- $($task.checkbox) $issueKey - $($task.description)"
-                $content = $content -replace [regex]::Escape($oldLine), $newLine
-                
-                $created++
-            }
-            catch {
-                Write-Host "    ERROR: $_"
+                catch {
+                    Write-Host "    ERROR: $_"
+                }
             }
         }
         
-        if ($created -gt 0 -and -not $DryRun) {
+        # Process existing tasks (update status if changed)
+        if ($existingTasks.Count -gt 0) {
+            Write-Host "  $($service.name): Checking $($existingTasks.Count) existing task(s) for status changes"
+            
+            foreach ($task in $existingTasks) {
+                $status = Get-StatusFromCheckbox -checkbox $task.checkbox
+                
+                try {
+                    # Get current issue status
+                    $issueUri = "$JiraBaseUrl/rest/api/3/issue/$($task.key)"
+                    $issueResponse = Invoke-RestMethod -Uri $issueUri -Headers $headers -Method Get
+                    $currentStatus = $issueResponse.fields.status.name
+                    
+                    # If status changed, transition
+                    if ($currentStatus -ne $status) {
+                        if ($DryRun) {
+                            Write-Host "    [DRY RUN] Would transition $($task.key) from $currentStatus to $status"
+                            continue
+                        }
+                        
+                        try {
+                            $transUri = "$JiraBaseUrl/rest/api/3/issue/$($task.key)/transitions"
+                            $transResponse = Invoke-RestMethod -Uri $transUri -Headers $headers -Method Get
+                            $trans = $transResponse.transitions | Where-Object { $_.to.name -eq $status } | Select-Object -First 1
+                            
+                            if ($trans) {
+                                $transBody = @{ transition = @{ id = $trans.id } } | ConvertTo-Json
+                                Invoke-RestMethod -Uri $transUri -Headers $headers -Method Post -Body $transBody | Out-Null
+                                Write-Host "    UPDATED: $($task.key) transitioned from $currentStatus to $status"
+                                $updated++
+                            }
+                            else {
+                                Write-Host "    WARNING: No transition available from $currentStatus to $status for $($task.key)"
+                            }
+                        }
+                        catch {
+                            Write-Host "    WARNING: Could not transition $($task.key): $_"
+                        }
+                    }
+                }
+                catch {
+                    Write-Host "    WARNING: Could not fetch status for $($task.key): $_"
+                }
+            }
+        }
+        
+        if (($created -gt 0 -or $updated -gt 0) -and -not $DryRun) {
             Set-Content -Path $service.file -Value $content -NoNewline
-            Write-Host "    SUCCESS: File updated with $created new issue key(s)"
+            Write-Host "    SUCCESS: File updated"
         }
     }
     
-    Write-Host "  Total created: $created"
+    Write-Host "  Total created: $created, updated: $updated"
 }
 
 # Main execution
