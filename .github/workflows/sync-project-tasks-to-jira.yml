@@ -21,6 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Jira to project-task.md sync
         shell: pwsh
@@ -34,8 +35,8 @@ jobs:
       - name: Commit Jira sync changes
         if: success()
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
 
           # Check if there are changes
           if git diff --quiet; then
@@ -45,7 +46,7 @@ jobs:
 
           git add "Applications/*/Services/*/.kiro/specs/*/project-task.md"
           git commit -m "chore: sync Jira tasks to project-task.md files [skip ci]"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
+          git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
