@@ -17,19 +17,28 @@ Fix the Jira sync workflow that synchronizes tasks between `project-task.md` fil
 - **Location**: `scripts/sync-jira-to-tasks.ps1`
 - **Status**: ✅ FIXED
 
-### Issue 2: Environment Variable Mismatch
+### Issue 2: Missing Service Labels (FIXED)
+- **Problem**: Jira issues created by sync scripts don't have service labels
+- **Impact**: `sync-jira-to-tasks` script cannot identify which service the issue belongs to
+- **Solution**: Add service labels when creating issues:
+  - `ai-security-service` for SecurityService
+  - `data-loader-service` for DataLoaderService
+- **Location**: Service-specific sync scripts
+- **Status**: ✅ FIXED
+
+### Issue 3: Environment Variable Mismatch
 - **Problem**: The workflow uses `JIRA_BASE_URL` but the service-specific sync scripts expect `JIRA_BASE_URI`
 - **Impact**: Service-specific sync jobs fail with "ERROR: .env file not found" or connection errors
 - **Location**: `.github/workflows/sync-jira-to-project-tasks.yml`
 - **Status**: Already correct - no changes needed
 
-### Issue 3: Project Key Configuration
+### Issue 4: Project Key Configuration
 - **Problem**: Some scripts reference `AITOOL` project key instead of `WEALTHFID`
 - **Impact**: Jira issues created in wrong project or API calls fail
 - **Location**: All sync scripts
 - **Status**: Already correct - no changes needed
 
-### Issue 4: Service Labels
+### Issue 5: Service Labels
 - **Problem**: Service labels don't match expected values (`ai-security-service`, `data-loader-service`)
 - **Impact**: Tasks not synced to correct service project-task.md files
 - **Location**: `scripts/sync-jira-to-tasks.ps1`
@@ -58,6 +67,7 @@ Fix the Jira sync workflow that synchronizes tasks between `project-task.md` fil
 - [x] `ai-security-service` label maps to SecurityService
 - [x] `data-loader-service` label maps to DataLoaderService
 - [x] Tasks synced to correct project-task.md files
+- [x] New issues automatically get service labels
 
 ### AC5: Sync Order
 - [x] `sync-tasks-to-jira` runs first (project-task.md → Jira)
@@ -99,6 +109,16 @@ Fix the Jira sync workflow that synchronizes tasks between `project-task.md` fil
 - All AITooling issues in WEALTHFID project
 - No issues in AITOOL project
 - Project key consistent across all scripts
+
+### US4: Service Label Tracking
+**As a** developer  
+**I want to** Jira issues automatically labeled by service  
+**So that** sync-jira-to-tasks can correctly identify which service each issue belongs to
+
+**Acceptance Criteria:**
+- SecurityService issues have `ai-security-service` label
+- DataLoaderService issues have `data-loader-service` label
+- No manual label assignment required
 
 ## Non-Functional Requirements
 

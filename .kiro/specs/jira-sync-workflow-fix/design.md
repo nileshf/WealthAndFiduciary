@@ -31,12 +31,14 @@ GitHub Actions Workflow
 │   ├── Uses: JIRA_BASE_URL (correct)
 │   └── Calls: .kiro/scripts/jira-sync.ps1
 │       ├── Reads: .env (JIRA_BASE_URL, JIRA_PROJECT_KEY)
+│       ├── Creates issues with labels (FIXED)
 │       └── Uses: /rest/api/3/ endpoints (correct)
 │
 ├── sync-tasks-to-jira (DataLoaderService)
 │   ├── Uses: JIRA_BASE_URL (correct)
 │   └── Calls: .kiro/scripts/jira-sync.ps1
 │       ├── Reads: .env (JIRA_BASE_URL, JIRA_PROJECT_KEY)
+│       ├── Creates issues with labels (FIXED)
 │       └── Uses: /rest/api/3/ endpoints (correct)
 │
 └── sync-jira-to-tasks
@@ -48,7 +50,7 @@ GitHub Actions Workflow
 
 ## Changes Required
 
-### 1. Jira API Endpoint Migration (FIXED)
+### 1. Jira API v3 Search Endpoint (FIXED)
 **File**: `scripts/sync-jira-to-tasks.ps1`
 
 **Problem**: Jira API v3 search endpoint changed from GET to POST with different URL
@@ -69,7 +71,39 @@ $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $bo
 
 **Status**: ✅ FIXED
 
-### 2. Environment Variable Consistency
+### 2. Service Labels on Jira Issues (FIXED)
+**File**: Service-specific sync scripts
+
+**Problem**: Jira issues created by sync scripts don't have service labels
+- SecurityService issues need `ai-security-service` label
+- DataLoaderService issues need `data-loader-service` label
+
+**Fix Applied**:
+1. Removed `labels` field from issue creation body (Jira API v3 doesn't support it during creation)
+2. Added `Set-JiraIssueLabels` function to update labels after issue creation
+3. Call `Set-JiraIssueLabels` after creating each issue
+
+**SecurityService Fix**:
+```powershell
+# Removed from issue creation body
+# labels = @('ai-security-service')
+
+# Added after issue creation
+Set-JiraIssueLabels -IssueKey $issueKey -Labels @('ai-security-service')
+```
+
+**DataLoaderService Fix**:
+```powershell
+# Removed from issue creation body
+# labels = @('data-loader-service')
+
+# Added after issue creation
+Set-JiraIssueLabels -IssueKey $issueKey -Labels @('data-loader-service')
+```
+
+**Status**: ✅ FIXED
+
+### 3. Environment Variable Consistency
 **File**: All sync scripts
 
 **Check**:
@@ -79,7 +113,7 @@ $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $bo
 
 **Status**: Already correct - no changes needed
 
-### 3. Jira API v3 Compliance
+### 4. Jira API v3 Compliance
 **File**: All sync scripts
 
 **Check**:
@@ -89,7 +123,7 @@ $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $bo
 
 **Status**: Already correct - no changes needed
 
-### 4. Project Key Configuration
+### 5. Project Key Configuration
 **File**: All sync scripts
 
 **Check**:
@@ -98,7 +132,7 @@ $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $bo
 
 **Status**: Already correct - no changes needed
 
-### 5. Service Label Mapping
+### 6. Service Label Mapping
 **File**: `scripts/sync-jira-to-tasks.ps1`
 
 **Check**:
@@ -114,19 +148,24 @@ $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $bo
 2. Test the endpoint works correctly
 3. Verify issues are returned
 
-### Phase 2: Verification
+### Phase 2: Fix Service Labels (COMPLETED)
+1. Update SecurityService sync script to add labels after issue creation
+2. Update DataLoaderService sync script to add labels after issue creation
+3. Test label updates work correctly
+
+### Phase 3: Verification
 1. Verify environment variable names match
 2. Verify all API endpoints use v3
 3. Verify all project keys are WEALTHFID
 4. Verify all service labels are correct
 
-### Phase 3: Testing
+### Phase 4: Testing
 1. Run workflow manually with debug logging
 2. Verify sync-tasks-to-jira job succeeds
 3. Verify sync-jira-to-tasks job succeeds
 4. Verify project-task.md files are updated correctly
 
-### Phase 4: Validation
+### Phase 5: Validation
 1. Check Jira issues created in WEALTHFID project
 2. Verify task files updated with correct status
 3. Verify no errors in workflow logs
@@ -185,3 +224,4 @@ If issues are found:
 - [x] Jira issues created in WEALTHFID project
 - [x] Project-task.md files updated correctly
 - [x] No environment variable errors
+- [x] Service labels added to Jira issues

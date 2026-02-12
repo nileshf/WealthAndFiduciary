@@ -108,7 +108,7 @@ function New-JiraIssue {
     }
     
     # Note: We don't set status during creation - Jira creates with default status
-    # We'll transition to "To Do" after creation if needed
+    # Labels are set after creation using a separate update call
     $body = @{
         fields = @{
             project = @{ key = $env:JIRA_PROJECT_KEY }
@@ -246,6 +246,55 @@ function Set-JiraIssueStatus {
             }
             else {
                 Write-Host "    [WARN] Could not transition issue: $errorMsg" -ForegroundColor Yellow
+                return $false
+            }
+        }
+    }
+    
+    return $false
+}
+
+function Set-JiraIssueLabels {
+    param([string]$IssueKey, [string[]]$Labels)
+    
+    $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$($env:JIRA_EMAIL):$($env:JIRA_API_TOKEN)"))
+    
+    # Update labels using PUT request
+    $body = @{
+        update = @{
+            labels = @{
+                add = $Labels
+            }
+        }
+    } | ConvertTo-Json -Depth 10
+    
+    $maxRetries = 3
+    $retryCount = 0
+    
+    while ($retryCount -lt $maxRetries) {
+        try {
+            Invoke-RestMethod `
+                -Uri "$($env:JIRA_BASE_URL)/rest/api/3/issue/$IssueKey" `
+                -Method Put `
+                -Headers @{
+                    'Authorization' = "Basic $auth"
+                    'Content-Type' = 'application/json'
+                } `
+                -Body $body `
+                -TimeoutSec 30 | Out-Null
+            
+            Write-Host "    [OK] Labels updated: $($Labels -join ', ')" -ForegroundColor Green
+            return $true
+        }
+        catch {
+            $retryCount++
+            $errorMsg = $_.Exception.Message
+            
+            if ($retryCount -lt $maxRetries -and ($errorMsg -match '407|503|504|timeout')) {
+                Start-Sleep -Seconds (2 * $retryCount)
+            }
+            else {
+                Write-Host "    [WARN] Could not update labels: $errorMsg" -ForegroundColor Yellow
                 return $false
             }
         }
@@ -465,6 +514,10 @@ foreach ($task in $tasksToCreate) {
         
         $status = Get-JiraIssueStatus $issueKey
         Write-Host "  Status: $status" -ForegroundColor Gray
+        
+        # Update labels on the issue
+        Write-Host "  Updating labels..." -ForegroundColor Gray
+        $labelsUpdated = Set-JiraIssueLabels -IssueKey $issueKey -Labels @('data-loader-service')
         
         if (Update-TaskWithJira -TaskName $task.Name -IssueKey $issueKey -Status $status) {
             $createdCount++

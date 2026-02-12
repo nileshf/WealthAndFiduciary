@@ -18,8 +18,8 @@
 - [ ] Set up CI/CD pipeline (Jira: WEALTHFID-142, Status: To Do)
 - [ ] Configure Docker container (Jira: WEALTHFID-143, Status: To Do)
 - [ ] Set up PostgreSQL database (Jira: WEALTHFID-144, Status: To Do)
-- [ ] Implement health check endpoints (Jira: WEALTHFID-145, Status: To Do)
-- [ ] Add monitoring and alerting (Jira: WEALTHFID-146, Status: To Do)
+- [ ] Implement health check endpoints
+- [ ] Add monitoring and alerting
 
 
 

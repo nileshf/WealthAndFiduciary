@@ -68,6 +68,18 @@
   - Test endpoint works correctly
   - Verify issues are returned
 
+- [x] 12. Add service labels to SecurityService issues
+  - Remove labels from issue creation body
+  - Add Set-JiraIssueLabels function
+  - Call function after issue creation
+  - Test labels are added correctly
+
+- [x] 13. Add service labels to DataLoaderService issues
+  - Remove labels from issue creation body
+  - Add Set-JiraIssueLabels function
+  - Call function after issue creation
+  - Test labels are added correctly
+
 ## Checkpoint Tasks
 - [x] X. Checkpoint - Verify all verification tasks pass
   - All environment variables correct
