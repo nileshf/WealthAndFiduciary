@@ -26,9 +26,9 @@ jobs:
           fetch-depth: 0
       
       - name: Setup PowerShell
-        uses: actions/setup-powershell@v2
+        uses: powershell/setup-powershell@v1
         with:
-          pwsh-version: latest
+          pwsh: true
       
       - name: Run Jira sync script
         shell: pwsh
@@ -83,9 +83,9 @@ jobs:
           fetch-depth: 0
       
       - name: Setup PowerShell
-        uses: actions/setup-powershell@v2
+        uses: powershell/setup-powershell@v1
         with:
-          pwsh-version: latest
+          pwsh: true
       
       - name: Sync SecurityService tasks to Jira
         shell: pwsh
