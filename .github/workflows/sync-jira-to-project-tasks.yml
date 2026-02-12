@@ -18,7 +18,12 @@ jobs:
       - name: Run Jira sync script
         shell: pwsh
         run: |
-          .\scripts\sync-jira-to-tasks.ps1 -Verbose
+          try {
+            .\scripts\sync-jira-to-tasks.ps1 -Verbose
+          } catch {
+            Write-Error "Error running sync script: $_"
+            exit 1
+          }
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
