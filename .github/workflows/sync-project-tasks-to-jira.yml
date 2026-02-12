@@ -67,12 +67,15 @@ jobs:
     name: Sync Project Tasks to Jira
     needs: sync-jira-to-tasks
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Create new Jira issues from project-task.md
         shell: pwsh
@@ -82,6 +85,24 @@ jobs:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      - name: Commit updated project-task.md files
+        if: success()
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+          # Check if there are changes
+          if git diff --quiet; then
+            echo "No changes from task sync"
+            exit 0
+          fi
+
+          git add "Applications/*/Services/*/.kiro/specs/*/project-task.md"
+          git commit -m "chore: sync project-task.md with Jira issue keys [skip ci]"
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git main
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Report task creation results
         if: always()

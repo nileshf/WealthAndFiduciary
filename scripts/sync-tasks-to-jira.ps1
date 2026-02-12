@@ -290,10 +290,13 @@ function Update-ProjectTaskFile {
     try {
         $content = Get-Content $filePath -Raw
         
+        # Escape special regex characters in the description
+        $escapedDescription = [regex]::Escape($taskDescription)
+        
         # Find the task line and replace it with the Jira issue key
         # Pattern: - [ ] Description → - [ ] ISSUE-KEY - Description
-        $pattern = "- (\[[ x~-]\])\s+\Q$taskDescription\E(?:\n|$)"
-        $replacement = "- `$1 $issueKey - $taskDescription`n"
+        $pattern = "- (\[[ x~-]\])\s+$escapedDescription(?:\r?\n|$)"
+        $replacement = "- `$1 $issueKey - $taskDescription`r`n"
         
         $newContent = [regex]::Replace($content, $pattern, $replacement)
         
@@ -402,27 +405,12 @@ function Sync-TasksToJira {
 try {
     $result = Sync-TasksToJira -DryRun:$DryRun
     
-    if (-not $DryRun -and $result.updatedFiles.Count -gt 0) {
-        Write-Log "Committing updated project-task.md files..." -Level Info
-        
-        # Configure git
-        git config --global user.email "action@github.com"
-        git config --global user.name "GitHub Action"
-        
-        # Add updated files
+    Write-Log "Summary: $($result.createdCount) created, $($result.skippedCount) skipped, $($result.errorCount) errors" -Level Info
+    
+    if ($result.updatedFiles.Count -gt 0) {
+        Write-Log "Updated files:" -Level Info
         foreach ($file in $result.updatedFiles) {
-            git add $file
-        }
-        
-        # Check if there are changes to commit
-        $gitStatus = git status --porcelain
-        if ($gitStatus) {
-            git commit -m "chore: sync project-task.md with Jira issue keys [skip ci]"
-            git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git main
-            Write-Log "Successfully pushed updated project-task.md files" -Level Success
-        }
-        else {
-            Write-Log "No changes to commit" -Level Info
+            Write-Log "  - $file" -Level Info
         }
     }
     
