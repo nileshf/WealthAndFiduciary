@@ -33,6 +33,7 @@ jobs:
 
       - name: Determine task file path
         id: paths
+        shell: pwsh
         run: |
           if ("${{ github.event.inputs.service_name }}" -eq "SecurityService") {
             echo "task_file=Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md" >> $env:GITHUB_OUTPUT
