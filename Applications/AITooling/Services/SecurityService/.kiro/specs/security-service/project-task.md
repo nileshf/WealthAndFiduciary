@@ -1,4 +1,4 @@
-﻿# SecurityService Project Tasks
+# SecurityService Project Tasks
 
 ## Implementation Tasks
 - [ ] WEALTHFID-191 - Implement JWT authentication
@@ -20,4 +20,3 @@
 - [ ] WEALTHFID-203 - Set up PostgreSQL database
 - [ ] WEALTHFID-204 - Implement health check endpoints
 - [ ] WEALTHFID-205 - Add monitoring and alerting
-- [ ] new task in Security
