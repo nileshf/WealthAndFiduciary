@@ -20,3 +20,20 @@
 - [-] WEALTHFID-206 - Implement CSV file upload endpoint
 - [ ] WEALTHFID-159 - data loader Task: hi there
 
+
+- [-] WEALTHFID-205 - Add monitoring and alerting
+- [-] WEALTHFID-204 - Implement health check endpoints
+- [-] WEALTHFID-203 - Set up PostgreSQL database
+- [-] WEALTHFID-202 - Configure Docker container
+- [-] WEALTHFID-201 - Set up CI/CD pipeline
+- [-] WEALTHFID-200 - Set up code coverage reporting
+- [-] WEALTHFID-199 - Implement property-based tests
+- [-] WEALTHFID-198 - Create API test collections (Postman/Bruno)
+- [-] WEALTHFID-197 - Write integration tests for API endpoints
+- [-] WEALTHFID-196 - Write unit tests for authentication
+- [-] WEALTHFID-195 - Add audit logging for security events
+- [-] WEALTHFID-194 - Implement password hashing with BCrypt
+- [-] WEALTHFID-193 - Create role-based authorization
+- [-] WEALTHFID-192 - Add user registration endpoint
+- [-] WEALTHFID-191 - Implement JWT authentication
+- [ ] WEALTHFID-158 - Security service Task: hello
