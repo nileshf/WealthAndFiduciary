@@ -18,5 +18,4 @@
 - [-] WEALTHFID-208 - Create database migration for data storage
 - [-] WEALTHFID-207 - Add data validation logic
 - [-] WEALTHFID-206 - Implement CSV file upload endpoint
-- [ ] WEALTHFID-159 - data loader Task: hi there
 

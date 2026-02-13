@@ -119,6 +119,43 @@ function Get-CheckboxFromStatus {
     }
 }
 
+# Helper: Calculate string similarity (Levenshtein distance)
+function Get-StringSimilarity {
+    param([string]$str1, [string]$str2)
+    
+    $str1 = $str1.ToLower()
+    $str2 = $str2.ToLower()
+    
+    # Exact match
+    if ($str1 -eq $str2) { return 1.0 }
+    
+    # Check if one contains the other (but require at least 50% of shorter string)
+    $minLen = [Math]::Min($str1.Length, $str2.Length)
+    $maxLen = [Math]::Max($str1.Length, $str2.Length)
+    
+    if ($minLen -eq 0) { return 0 }
+    
+    # Word-based matching
+    $words1 = $str1 -split '\s+' | Where-Object { $_.Length -gt 2 }
+    $words2 = $str2 -split '\s+' | Where-Object { $_.Length -gt 2 }
+    
+    if ($words1.Count -eq 0 -or $words2.Count -eq 0) {
+        return 0
+    }
+    
+    # Count matching words
+    $matchingWords = 0
+    foreach ($word1 in $words1) {
+        if ($words2 -contains $word1) {
+            $matchingWords++
+        }
+    }
+    
+    # Calculate similarity as percentage of matching words
+    $similarity = $matchingWords / [Math]::Max($words1.Count, $words2.Count)
+    return $similarity
+}
+
 # Match tasks without keys to Jira issues by summary
 Write-Host "`nMatching tasks without Jira keys..." -ForegroundColor Cyan
 if ($tasksWithoutKeys.Count -gt 0) {
@@ -128,22 +165,30 @@ if ($tasksWithoutKeys.Count -gt 0) {
         $taskSummary = $taskWithoutKey.summary
         Write-Host "  Searching for: '$taskSummary'" -ForegroundColor Cyan
         
-        # Find matching Jira issue by summary
-        $matchingIssue = $jiraIssues | Where-Object { 
-            $_.fields.summary -like "*$taskSummary*" -or 
-            $taskSummary -like "*$($_.fields.summary)*"
-        } | Select-Object -First 1
+        # Find best matching Jira issue by similarity
+        $bestMatch = $null
+        $bestSimilarity = 0
         
-        if ($matchingIssue) {
-            $checkbox = Get-CheckboxFromStatus $matchingIssue.fields.status.name
+        foreach ($issue in $jiraIssues) {
+            $similarity = Get-StringSimilarity $taskSummary $issue.fields.summary
+            
+            # Require at least 60% similarity
+            if ($similarity -gt $bestSimilarity -and $similarity -ge 0.6) {
+                $bestSimilarity = $similarity
+                $bestMatch = $issue
+            }
+        }
+        
+        if ($bestMatch) {
+            $checkbox = Get-CheckboxFromStatus $bestMatch.fields.status.name
             $oldLine = $taskWithoutKey.line
-            $newLine = "- [$checkbox] $($matchingIssue.key) - $($matchingIssue.fields.summary)"
+            $newLine = "- [$checkbox] $($bestMatch.key) - $($bestMatch.fields.summary)"
             
             $updatedContent = $updatedContent -replace [regex]::Escape($oldLine), $newLine
-            Write-Host "    ✓ Matched to: $($matchingIssue.key)" -ForegroundColor Green
+            Write-Host "    ✓ Matched to: $($bestMatch.key) (similarity: $([Math]::Round($bestSimilarity * 100))%)" -ForegroundColor Green
         }
         else {
-            Write-Host "    ✗ No matching Jira issue found" -ForegroundColor Yellow
+            Write-Host "    ✗ No matching Jira issue found (required 60% similarity)" -ForegroundColor Yellow
         }
     }
     
