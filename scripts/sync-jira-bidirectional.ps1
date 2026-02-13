@@ -2,6 +2,8 @@
 <#
 .SYNOPSIS
     Bidirectional sync between Jira and project-task.md files
+.DESCRIPTION
+    Syncs tasks between Jira and markdown files
 #>
 
 param(
@@ -16,6 +18,7 @@ $ErrorActionPreference = 'Continue'
 Write-Host "=== Jira Sync Script Started ===" -ForegroundColor Green
 Write-Host "Base URL: $JiraBaseUrl"
 Write-Host "Email: $JiraEmail"
+Write-Host "Dry Run: $DryRun"
 
 # Validation
 if (-not $JiraBaseUrl) {
@@ -56,8 +59,9 @@ Write-Host "`n=== Checking Files ===" -ForegroundColor Cyan
 foreach ($service in $services) {
     if (Test-Path $service.file) {
         Write-Host "✓ $($service.name): $($service.file)" -ForegroundColor Green
-    } else {
-        Write-Host "✗ $($service.name): File not found - $($service.file)" -ForegroundColor Red
+    }
+    else {
+        Write-Host "✗ $($service.name): File not found" -ForegroundColor Red
     }
 }
 
@@ -72,8 +76,8 @@ function Get-JiraAuth {
 function Get-JiraHeaders {
     return @{
         'Authorization' = "Basic $(Get-JiraAuth)"
-        'Content-Type' = 'application/json'
-        'Accept' = 'application/json'
+        'Content-Type'  = 'application/json'
+        'Accept'        = 'application/json'
     }
 }
 
@@ -84,19 +88,21 @@ try {
     $testUri = "$JiraBaseUrl/rest/api/3/myself"
     $response = Invoke-RestMethod -Uri $testUri -Headers $headers -Method Get
     Write-Host "✓ Connected to Jira as: $($response.displayName)" -ForegroundColor Green
-} catch {
+}
+catch {
     Write-Host "✗ Failed to connect to Jira: $_" -ForegroundColor Red
     exit 1
 }
 
 # Fetch Jira issues
 Write-Host "`n=== Fetching Jira Issues ===" -ForegroundColor Cyan
+$jiraIssues = @{}
 try {
     $uri = "$JiraBaseUrl/rest/api/3/search"
     $body = @{
-        jql = 'project = WEALTHFID'
+        jql        = 'project = WEALTHFID'
         maxResults = 100
-        fields = @("key", "summary", "status", "labels")
+        fields     = @("key", "summary", "status", "labels")
     } | ConvertTo-Json
     
     Write-Host "Query: project = WEALTHFID"
@@ -105,16 +111,28 @@ try {
     
     Write-Host "✓ Found $($issues.Count) issues" -ForegroundColor Green
     
+    foreach ($issue in $issues) {
+        $jiraIssues[$issue.key] = @{
+            key     = $issue.key
+            summary = $issue.fields.summary
+            status  = $issue.fields.status.name
+        }
+    }
+    
     foreach ($issue in $issues | Select-Object -First 5) {
         Write-Host "  - $($issue.key): $($issue.fields.summary)" -ForegroundColor Gray
     }
-} catch {
+}
+catch {
     Write-Host "✗ Failed to fetch issues: $_" -ForegroundColor Red
     exit 1
 }
 
-# Sync markdown to Jira (create new tasks)
+# Sync markdown to Jira
 Write-Host "`n=== Syncing Markdown to Jira ===" -ForegroundColor Cyan
+
+$totalUpdated = 0
+$totalCreated = 0
 
 foreach ($service in $services) {
     if (-not (Test-Path $service.file)) {
@@ -122,28 +140,41 @@ foreach ($service in $services) {
         continue
     }
     
+    Write-Host "`n  Processing $($service.name)..." -ForegroundColor Cyan
+    
     $content = Get-Content $service.file -Raw
     $lines = $content -split "`n"
     $newCount = 0
+    $updateCount = 0
     
     foreach ($line in $lines) {
-        # Skip empty lines and headers
         if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) {
             continue
         }
         
-        # Match: - [checkbox] Description (without Jira key)
-        if ($line -match '^\s*-\s+\[[ x~-]\]\s+(?![A-Z]+-\d+)(.+)$') {
-            $description = $matches[1].Trim()
-            
-            if (-not [string]::IsNullOrWhiteSpace($description)) {
-                $newCount++
+        # Match existing Jira tasks: - [x] WEALTHFID-123 - Description
+        if ($line -match '^\s*-\s+\[[x ~-]\]\s+([A-Z]+-\d+)') {
+            $issueKey = $matches[1]
+            if ($jiraIssues.ContainsKey($issueKey)) {
+                Write-Host "    ✓ $issueKey" -ForegroundColor Gray
+                $updateCount++
             }
+        }
+        # Match new tasks without Jira key: - [ ] Description
+        elseif ($line -match '^\s*-\s+\[[ x~-]\]\s+(?![A-Z]+-\d+)') {
+            Write-Host "    ⊕ New task" -ForegroundColor Yellow
+            $newCount++
         }
     }
     
-    Write-Host "  $($service.name): $newCount new task(s) to create" -ForegroundColor Gray
+    Write-Host "    Summary: $updateCount existing, $newCount new" -ForegroundColor Gray
+    $totalUpdated += $updateCount
+    $totalCreated += $newCount
 }
+
+Write-Host "`n=== Sync Summary ===" -ForegroundColor Cyan
+Write-Host "Total updated: $totalUpdated" -ForegroundColor Green
+Write-Host "Total new: $totalCreated" -ForegroundColor Green
 
 Write-Host "`n✓ Sync completed successfully" -ForegroundColor Green
 exit 0
