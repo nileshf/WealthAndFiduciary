@@ -119,9 +119,41 @@ function Get-CheckboxFromStatus {
     }
 }
 
+# Match tasks without keys to Jira issues by summary
+Write-Host "`nMatching tasks without Jira keys..." -ForegroundColor Cyan
+if ($tasksWithoutKeys.Count -gt 0) {
+    $updatedContent = $content
+    
+    foreach ($taskWithoutKey in $tasksWithoutKeys) {
+        $taskSummary = $taskWithoutKey.summary
+        Write-Host "  Searching for: '$taskSummary'" -ForegroundColor Cyan
+        
+        # Find matching Jira issue by summary
+        $matchingIssue = $jiraIssues | Where-Object { 
+            $_.fields.summary -like "*$taskSummary*" -or 
+            $taskSummary -like "*$($_.fields.summary)*"
+        } | Select-Object -First 1
+        
+        if ($matchingIssue) {
+            $checkbox = Get-CheckboxFromStatus $matchingIssue.fields.status.name
+            $oldLine = $taskWithoutKey.line
+            $newLine = "- [$checkbox] $($matchingIssue.key) - $($matchingIssue.fields.summary)"
+            
+            $updatedContent = $updatedContent -replace [regex]::Escape($oldLine), $newLine
+            Write-Host "    ✓ Matched to: $($matchingIssue.key)" -ForegroundColor Green
+        }
+        else {
+            Write-Host "    ✗ No matching Jira issue found" -ForegroundColor Yellow
+        }
+    }
+    
+    # Write updated content after matching
+    Set-Content -Path $TaskFile -Value $updatedContent
+}
+
 # Add missing tasks to markdown
 Write-Host "`nAdding missing tasks to markdown..." -ForegroundColor Cyan
-$updatedContent = $content
+$updatedContent = Get-Content $TaskFile -Raw
 foreach ($task in $missingTasks) {
     $checkbox = Get-CheckboxFromStatus $task.fields.status.name
     $newLine = "- [$checkbox] $($task.key) - $($task.fields.summary)"
