@@ -2,7 +2,9 @@
 
 ## Overview
 
-The WealthAndFiduciary workspace now has **fully automatic bidirectional sync** between Jira and project-task.md files. Changes in either system automatically sync to the other.
+The WealthAndFiduciary workspace now has **fully automatic bidirectional sync**
+between Jira and project-task.md files. Changes in either system automatically
+sync to the other.
 
 ## How It Works
 
@@ -11,17 +13,20 @@ The WealthAndFiduciary workspace now has **fully automatic bidirectional sync** 
 **Trigger**: Schedule (every 15 minutes) + Manual trigger
 
 **Process**:
+
 1. Workflow runs `scripts/sync-jira-to-tasks.ps1`
 2. Script fetches all open Jira issues with service labels
 3. Issues are added to the corresponding service's `project-task.md` file
 4. Changes are committed and pushed automatically
 
 **Service Label Mapping**:
+
 - `ai-security-service` → `Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md`
 - `data-loader-service` → `Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md`
 
 **Example**:
-```
+
+```powershell
 When you create a Jira issue with label "ai-security-service":
 1. Workflow detects the issue (every 15 minutes)
 2. Issue is added to SecurityService project-task.md
@@ -33,19 +38,22 @@ When you create a Jira issue with label "ai-security-service":
 **Trigger**: Push to develop branch when project-task.md files change
 
 **Process**:
+
 1. Workflow detects changes to project-task.md files
 2. Parses checkbox status changes
 3. Maps checkbox status to Jira workflow status
 4. Updates Jira issue status automatically
 
 **Checkbox Status Mapping**:
+
 - `[ ]` (space) → Jira status "To Do"
 - `[-]` (dash) → Jira status "In Progress"
 - `[~]` (tilde) → Jira status "Testing"
 - `[x]` (x) → Jira status "Done"
 
 **Example**:
-```
+
+```markdown
 When you change a task in project-task.md:
 - [ ] WEALTHFID-150 - Implement health check endpoints
 ↓ (change to)
@@ -61,6 +69,7 @@ When you change a task in project-task.md:
 ### `.github/workflows/sync-jira-to-project-tasks.yml`
 
 **Jobs**:
+
 1. `sync-jira-to-tasks` - Syncs Jira issues to project-task.md files
    - Runs on schedule (every 15 minutes)
    - Runs on manual trigger
@@ -82,7 +91,8 @@ When you change a task in project-task.md:
 
 **Trigger**: Push to develop when tasks.md files change
 
-**Note**: This workflow is separate from the bidirectional sync and handles initial task creation.
+**Note**: This workflow is separate from the bidirectional sync and handles
+initial task creation.
 
 ## Setting Up Automatic Sync
 
@@ -111,11 +121,12 @@ When you change a task in project-task.md:
 
 1. Go to repository Settings → Secrets and variables → Actions
 2. Add these secrets:
-   ```
-   JIRA_BASE_URL = https://yourcompany.atlassian.net
-   JIRA_USER_EMAIL = your-email@example.com
-   JIRA_API_TOKEN = your-api-token
-   ```
+
+```
+JIRA_BASE_URL = https://yourcompany.atlassian.net
+JIRA_USER_EMAIL = your-email@example.com
+JIRA_API_TOKEN = your-api-token
+```
 
 ### Creating Jira Issues with Labels
 
