@@ -1,0 +1,52 @@
+name: Jira Sync - Step 3 - Sync Jira Status
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        required: true
+        type: string
+        description: 'Service name (e.g., SecurityService, DataLoaderService)'
+      task_file:
+        required: true
+        type: string
+        description: 'Path to project-task.md file'
+
+jobs:
+  sync-jira-status:
+    runs-on: ubuntu-latest
+    name: Sync Status Changes from Jira
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PowerShell
+        uses: PowerShell/setup-powershell@v2
+        with:
+          psversion: latest
+
+      - name: Run Step 3 - Sync Jira Status
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+          TASK_FILE: ${{ inputs.task_file }}
+        run: |
+          & ./scripts/jira-sync-step3-sync-jira-status.ps1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Step 3 failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+          }
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore: sync Jira status changes to ${{ inputs.service_name }}'
+          file_pattern: ${{ inputs.task_file }}
+          skip_fetch: false
+          skip_checkout: false

@@ -1,0 +1,112 @@
+name: Jira Sync - Orchestrator
+
+on:
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: 'Service to sync (leave empty for all)'
+        required: false
+        type: string
+
+jobs:
+  sync-security-service:
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'SecurityService'
+    uses: ./.github/workflows/jira-sync-step1-pull-tasks.yml
+    with:
+      service_name: 'SecurityService'
+      task_file: 'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md'
+    secrets: inherit
+
+  sync-security-service-step2:
+    needs: sync-security-service
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'SecurityService'
+    uses: ./.github/workflows/jira-sync-step2-push-tasks.yml
+    with:
+      service_name: 'SecurityService'
+      task_file: 'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md'
+      project_key: 'WEALTHFID'
+    secrets: inherit
+
+  sync-security-service-step3:
+    needs: sync-security-service-step2
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'SecurityService'
+    uses: ./.github/workflows/jira-sync-step3-sync-jira-status.yml
+    with:
+      service_name: 'SecurityService'
+      task_file: 'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md'
+    secrets: inherit
+
+  sync-security-service-step4:
+    needs: sync-security-service-step3
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'SecurityService'
+    uses: ./.github/workflows/jira-sync-step4-sync-markdown-status.yml
+    with:
+      service_name: 'SecurityService'
+      task_file: 'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md'
+    secrets: inherit
+
+  sync-data-loader-service:
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'DataLoaderService'
+    uses: ./.github/workflows/jira-sync-step1-pull-tasks.yml
+    with:
+      service_name: 'DataLoaderService'
+      task_file: 'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
+    secrets: inherit
+
+  sync-data-loader-service-step2:
+    needs: sync-data-loader-service
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'DataLoaderService'
+    uses: ./.github/workflows/jira-sync-step2-push-tasks.yml
+    with:
+      service_name: 'DataLoaderService'
+      task_file: 'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
+      project_key: 'WEALTHFID'
+    secrets: inherit
+
+  sync-data-loader-service-step3:
+    needs: sync-data-loader-service-step2
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'DataLoaderService'
+    uses: ./.github/workflows/jira-sync-step3-sync-jira-status.yml
+    with:
+      service_name: 'DataLoaderService'
+      task_file: 'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
+    secrets: inherit
+
+  sync-data-loader-service-step4:
+    needs: sync-data-loader-service-step3
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'DataLoaderService'
+    uses: ./.github/workflows/jira-sync-step4-sync-markdown-status.yml
+    with:
+      service_name: 'DataLoaderService'
+      task_file: 'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
+    secrets: inherit
+
+  notify-completion:
+    needs: [sync-security-service-step4, sync-data-loader-service-step4]
+    if: always()
+    runs-on: ubuntu-latest
+    name: Notify Sync Completion
+
+    steps:
+      - name: Check job status
+        run: |
+          if [ "${{ needs.sync-security-service-step4.result }}" == "failure" ] || [ "${{ needs.sync-data-loader-service-step4.result }}" == "failure" ]; then
+            echo "❌ Jira sync completed with failures"
+            exit 1
+          else
+            echo "✅ Jira sync completed successfully"
+          fi
+
+      - name: Send Slack notification
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Jira Sync Orchestrator Completed
+            SecurityService: ${{ needs.sync-security-service-step4.result }}
+            DataLoaderService: ${{ needs.sync-data-loader-service-step4.result }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

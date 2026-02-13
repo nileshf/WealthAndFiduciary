@@ -1,0 +1,57 @@
+name: Jira Sync - Step 2 - Push New Tasks
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        required: true
+        type: string
+        description: 'Service name (e.g., SecurityService, DataLoaderService)'
+      task_file:
+        required: true
+        type: string
+        description: 'Path to project-task.md file'
+      project_key:
+        required: true
+        type: string
+        description: 'Jira project key (e.g., WEALTHFID)'
+
+jobs:
+  push-new-tasks:
+    runs-on: ubuntu-latest
+    name: Push New Tasks to Jira
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PowerShell
+        uses: PowerShell/setup-powershell@v2
+        with:
+          psversion: latest
+
+      - name: Run Step 2 - Push New Tasks
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+          TASK_FILE: ${{ inputs.task_file }}
+          JIRA_PROJECT_KEY: ${{ inputs.project_key }}
+        run: |
+          & ./scripts/jira-sync-step2-push-new-tasks.ps1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Step 2 failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+          }
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore: sync new tasks from ${{ inputs.service_name }} to Jira'
+          file_pattern: ${{ inputs.task_file }}
+          skip_fetch: false
+          skip_checkout: false
