@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Pre-Commit Error Handler",
+  "description": "Search Confluence for pre-commit build errors and provide fixes to developer",
+  "version": "1",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": [
+      "shell"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "When a pre-commit build error occurs, search Confluence for similar errors and provide the developer with:\n1. Link to the Confluence page with similar errors\n2. Kiro's suggested fix based on the error message\n3. Code example showing before/after\n\nConfluence URL to search: https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041\n\nAlso search the local error database at: .kiro/post-mortems/confluence-pre-commit-errors.md\n\nIf a similar error is found, show the developer:\n- The Confluence page link\n- The local error database entry\n- Kiro's suggested fix\n\nIf no similar error is found, create a new entry in the local error database and prompt the user to create a Confluence page.\n\nReturn all information to the developer in a clear, actionable format."
+  }
+}
