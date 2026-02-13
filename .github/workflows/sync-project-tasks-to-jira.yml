@@ -10,9 +10,9 @@ on:
     - cron: '0 * * * *'  # Every hour
 
 jobs:
-  sync:
+  sync-security-service:
     runs-on: ubuntu-latest
-    name: Bidirectional Jira Sync
+    name: Sync SecurityService to Jira
     
     steps:
       - name: Checkout code
@@ -25,26 +25,47 @@ jobs:
         run: |
           Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
 
-      - name: Run bidirectional sync
+      - name: Run Jira sync for SecurityService
         shell: pwsh
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: SecurityService
+          TASK_FILE: Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md
+          JIRA_PROJECT_KEY: WEALTHFID
         run: |
-          & ./scripts/sync-jira-bidirectional.ps1
+          & ./scripts/jira-sync-step1-pull-missing-tasks.ps1
+          & ./scripts/jira-sync-step2-push-new-tasks.ps1
+          & ./scripts/jira-sync-step3-sync-jira-status.ps1
+          & ./scripts/jira-sync-step4-sync-markdown-status.ps1
 
-      - name: Commit changes
+  sync-data-loader-service:
+    runs-on: ubuntu-latest
+    name: Sync DataLoaderService to Jira
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Setup PowerShell
         shell: pwsh
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          if (git diff --quiet) {
-            Write-Host "No changes to commit"
-            exit 0
-          }
-          
-          git add 'Applications/AITooling/Services/*/project-task.md'
-          git commit -m "chore: sync Jira issues to project-task.md files"
-          git push
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+
+      - name: Run Jira sync for DataLoaderService
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: DataLoaderService
+          TASK_FILE: Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md
+          JIRA_PROJECT_KEY: WEALTHFID
+        run: |
+          & ./scripts/jira-sync-step1-pull-missing-tasks.ps1
+          & ./scripts/jira-sync-step2-push-new-tasks.ps1
+          & ./scripts/jira-sync-step3-sync-jira-status.ps1
+          & ./scripts/jira-sync-step4-sync-markdown-status.ps1
