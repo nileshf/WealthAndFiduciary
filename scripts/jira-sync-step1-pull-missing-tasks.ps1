@@ -51,15 +51,11 @@ function Get-JiraHeaders {
 # Fetch Jira issues
 Write-Host "`nFetching Jira issues..." -ForegroundColor Cyan
 $headers = Get-JiraHeaders
-$uri = "$JiraBaseUrl/rest/api/3/search"
-$body = @{
-    jql        = 'project = WEALTHFID'
-    maxResults = 100
-    fields     = @("key", "summary", "status", "description")
-} | ConvertTo-Json
+$jql = 'project = WEALTHFID'
+$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status,description"
 
 try {
-    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $body
+    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
     $jiraIssues = $response.issues
     Write-Host "✓ Found $($jiraIssues.Count) issues in Jira" -ForegroundColor Green
 }

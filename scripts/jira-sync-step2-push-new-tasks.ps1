@@ -58,15 +58,11 @@ function Get-JiraHeaders {
 # Fetch existing Jira issues
 Write-Host "`nFetching existing Jira issues..." -ForegroundColor Cyan
 $headers = Get-JiraHeaders
-$uri = "$JiraBaseUrl/rest/api/3/search"
-$body = @{
-    jql        = "project = $ProjectKey"
-    maxResults = 100
-    fields     = @("key", "summary")
-} | ConvertTo-Json
+$jql = "project = $ProjectKey"
+$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary"
 
 try {
-    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -Body $body
+    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
     $jiraIssues = $response.issues
     $jiraKeys = $jiraIssues | ForEach-Object { $_.key }
     Write-Host "✓ Found $($jiraIssues.Count) issues in Jira" -ForegroundColor Green
