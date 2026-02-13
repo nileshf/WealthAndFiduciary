@@ -39,14 +39,15 @@ jobs:
           & ./scripts/jira-sync-step4-sync-markdown-status.ps1
 
       - name: Commit changes
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          if (git diff --quiet) {
-            Write-Host "No changes to commit"
+          if git diff --quiet; then
+            echo "No changes to commit"
             exit 0
-          }
+          fi
           
           git add Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md
           git commit -m "chore: sync Jira issues for SecurityService"
@@ -79,14 +80,15 @@ jobs:
           & ./scripts/jira-sync-step4-sync-markdown-status.ps1
 
       - name: Commit changes
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          if (git diff --quiet) {
-            Write-Host "No changes to commit"
+          if git diff --quiet; then
+            echo "No changes to commit"
             exit 0
-          }
+          fi
           
           git add Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md
           git commit -m "chore: sync Jira issues for DataLoaderService"
