@@ -166,6 +166,11 @@ public class DataController : ControllerBase
     [AllowAnonymous]
     public IActionResult HealthCheck()
     {
-        return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
+        return Ok(new
+        {
+            status = "healthy",
+            timestamp = DateTime.UtcNow
+
+        });
     }
 }
