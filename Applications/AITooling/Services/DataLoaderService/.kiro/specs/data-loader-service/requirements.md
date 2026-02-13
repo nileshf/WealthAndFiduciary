@@ -94,7 +94,7 @@ DataLoaderService handles CSV file uploads, data validation, parsing, and storag
 
 ## Dependencies
 
-- PostgreSQL database
+- SQL Server database
 - CSV parsing library
 - File storage (local or cloud)
 - Logging framework

@@ -9,6 +9,7 @@
 - **Infrastructure Layer**: Database access, file storage, CSV parsing
 
 ### Database Schema
+- **Database**: SQL Server
 - **Schema**: `DataLoader`
 - **Tables**: Files, FileColumns, FileData, ProcessingLogs
 
@@ -142,7 +143,7 @@
 ## Deployment
 
 - Docker container with .NET 9.0
-- PostgreSQL database
+- SQL Server database
 - File storage (local or cloud)
 - Background processing service
 - Health check endpoints

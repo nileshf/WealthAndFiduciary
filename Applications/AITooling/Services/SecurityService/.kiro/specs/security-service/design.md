@@ -9,6 +9,7 @@
 - **Infrastructure Layer**: Database access, token generation
 
 ### Database Schema
+- **Database**: SQL Server
 - **Schema**: `Security`
 - **Tables**: Users, Roles, Permissions, UserRoles, RefreshTokens, AuditLogs
 
@@ -135,7 +136,7 @@
 ## Deployment
 
 - Docker container with .NET 9.0
-- PostgreSQL database
+- SQL Server database
 - Environment-specific configuration
 - Health check endpoints
 - Monitoring and alerting

@@ -84,7 +84,7 @@ SecurityService provides authentication and authorization for the AITooling appl
 
 ## Dependencies
 
-- PostgreSQL database
+- SQL Server database
 - JWT library for token generation
 - Password hashing library (PBKDF2)
 - Logging framework
