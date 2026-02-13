@@ -147,9 +147,14 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(int id)
     {
-        // INTENTIONAL BUG: Missing null check - will cause NullReferenceException
         var allData = await _fileLoaderService.GetAllDataAsync();
         var data = allData.FirstOrDefault(d => d.Id == id);
-        return Ok(data.Name); // NullReferenceException if not found
+
+        if (data == null)
+        {
+            return NotFound(new { message = $"Data record with ID {id} not found" });
+        }
+
+        return Ok(data.Name);
     }
 }
