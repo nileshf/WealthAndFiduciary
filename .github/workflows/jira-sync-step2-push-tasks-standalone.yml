@@ -44,7 +44,7 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           SERVICE_NAME: ${{ github.event.inputs.service_name }}
           TASK_FILE: ${{ steps.paths.outputs.task_file }}
-          PROJECT_KEY: 'WEALTHFID'
+          JIRA_PROJECT_KEY: 'WEALTHFID'
         run: |
           & ./scripts/jira-sync-step2-push-new-tasks.ps1
           if ($LASTEXITCODE -ne 0) {
