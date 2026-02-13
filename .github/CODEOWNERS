@@ -10,10 +10,11 @@
 * @nileshf
 
 # Business Unit Standards
-/.kiro/steering/org-*.md @nileshf
+/.kiro/steering/wealth-and-fiduciary-*.md @nileshf
 /.kiro/steering/FOUR-LEVEL-STRUCTURE.md @nileshf
 /.kiro/steering/CODE-REVIEW-DIAGRAM.md @nileshf
 /.kiro/steering/DOCUMENTATION-REFERENCE.md @nileshf
+/.kiro/steering/README-WEALTH-AND-FIDUCIARY-STANDARDS @nileshf
 
 # FullView Application
 /Applications/FullView/ @nileshf
