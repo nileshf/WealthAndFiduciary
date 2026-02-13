@@ -1,8 +1,6 @@
 # SecurityService Project Tasks
 
 ## Implementation Tasks
-- [ ] Test security task
-
 - [-] WEALTHFID-220 - Add monitoring and alerting
 - [-] WEALTHFID-219 - Implement health check endpoints
 - [-] WEALTHFID-218 - Set up PostgreSQL database
@@ -34,5 +32,13 @@
 - [-] WEALTHFID-194 - Implement password hashing with BCrypt
 - [-] WEALTHFID-193 - Create role-based authorization
 - [-] WEALTHFID-192 - Add user registration endpoint
-- [-] WEALTHFID-191 - Implement JWT authentication
-- [ ] WEALTHFID-158 - Security service Task: hello
+- [~] WEALTHFID-191 - Implement JWT authentication
+- [-] WEALTHFID-223 - Test task to jira 2
+- [-] WEALTHFID-226 - Test task to jira 3
+
+
+
+- [~] WEALTHFID-224 - Task to markdown
+- [-] WEALTHFID-158 - Security service Task: hello
+
+

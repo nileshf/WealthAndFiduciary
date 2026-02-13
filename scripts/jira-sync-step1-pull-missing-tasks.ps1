@@ -52,15 +52,15 @@ function Get-JiraHeaders {
 Write-Host "`nFetching Jira issues..." -ForegroundColor Cyan
 $headers = Get-JiraHeaders
 $jql = 'project = WEALTHFID'
-$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status,description"
+$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status,description,labels"
 
 try {
     $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
     $jiraIssues = $response.issues
-    Write-Host "✓ Found $($jiraIssues.Count) issues in Jira" -ForegroundColor Green
+    Write-Host "Found issues in Jira" -ForegroundColor Green
 }
 catch {
-    Write-Host "✗ Failed to fetch Jira issues: $_" -ForegroundColor Red
+    Write-Host "ERROR: Failed to fetch Jira issues: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -86,7 +86,7 @@ $content -split "`n" | ForEach-Object {
         }
     }
 }
-Write-Host "✓ Found $($existingKeys.Count) existing tasks in markdown" -ForegroundColor Green
+Write-Host "Found $($existingKeys.Count) existing tasks in markdown" -ForegroundColor Green
 
 # Find missing tasks
 Write-Host "`nFinding missing tasks..." -ForegroundColor Cyan
@@ -98,11 +98,11 @@ foreach ($issue in $jiraIssues) {
 }
 
 if ($missingTasks.Count -eq 0) {
-    Write-Host "✓ No missing tasks" -ForegroundColor Green
+    Write-Host "No missing tasks" -ForegroundColor Green
     exit 0
 }
 
-Write-Host "✓ Found $($missingTasks.Count) missing task(s)" -ForegroundColor Yellow
+Write-Host "Found $($missingTasks.Count) missing task(s)" -ForegroundColor Yellow
 
 # Map Jira status to checkbox
 function Get-CheckboxFromStatus {
@@ -119,7 +119,7 @@ function Get-CheckboxFromStatus {
     }
 }
 
-# Helper: Calculate string similarity (Levenshtein distance)
+# Helper: Calculate string similarity (word-based)
 function Get-StringSimilarity {
     param([string]$str1, [string]$str2)
     
@@ -128,12 +128,6 @@ function Get-StringSimilarity {
     
     # Exact match
     if ($str1 -eq $str2) { return 1.0 }
-    
-    # Check if one contains the other (but require at least 50% of shorter string)
-    $minLen = [Math]::Min($str1.Length, $str2.Length)
-    $maxLen = [Math]::Max($str1.Length, $str2.Length)
-    
-    if ($minLen -eq 0) { return 0 }
     
     # Word-based matching
     $words1 = $str1 -split '\s+' | Where-Object { $_.Length -gt 2 }
@@ -185,10 +179,10 @@ if ($tasksWithoutKeys.Count -gt 0) {
             $newLine = "- [$checkbox] $($bestMatch.key) - $($bestMatch.fields.summary)"
             
             $updatedContent = $updatedContent -replace [regex]::Escape($oldLine), $newLine
-            Write-Host "    ✓ Matched to: $($bestMatch.key) (similarity: $([Math]::Round($bestSimilarity * 100))%)" -ForegroundColor Green
+            Write-Host "    Matched to: $($bestMatch.key) (similarity: $([Math]::Round($bestSimilarity * 100))%)" -ForegroundColor Green
         }
         else {
-            Write-Host "    ✗ No matching Jira issue found (required 60% similarity)" -ForegroundColor Yellow
+            Write-Host "    No matching Jira issue found (required 60% similarity)" -ForegroundColor Yellow
         }
     }
     
@@ -196,17 +190,41 @@ if ($tasksWithoutKeys.Count -gt 0) {
     Set-Content -Path $TaskFile -Value $updatedContent
 }
 
-# Add missing tasks to markdown
+# Add missing tasks to markdown (only if they match current service)
 Write-Host "`nAdding missing tasks to markdown..." -ForegroundColor Cyan
 $updatedContent = Get-Content $TaskFile -Raw
+$addedCount = 0
+
 foreach ($task in $missingTasks) {
+    # Check if task has labels
+    $taskLabels = $task.fields.labels
+    if (-not $taskLabels -or $taskLabels.Count -eq 0) {
+        Write-Host "  Skipped: $($task.key) (no labels)" -ForegroundColor Gray
+        continue
+    }
+    
+    # Check if any label matches the current service
+    $hasServiceLabel = $false
+    foreach ($label in $taskLabels) {
+        if ($label.ToLower() -eq $ServiceName.ToLower()) {
+            $hasServiceLabel = $true
+            break
+        }
+    }
+    
+    if (-not $hasServiceLabel) {
+        Write-Host "  Skipped: $($task.key) (no matching service label)" -ForegroundColor Gray
+        continue
+    }
+    
     $checkbox = Get-CheckboxFromStatus $task.fields.status.name
     $newLine = "- [$checkbox] $($task.key) - $($task.fields.summary)"
     $updatedContent += "`n$newLine"
-    Write-Host "  ⊕ Added: $($task.key)" -ForegroundColor Yellow
+    Write-Host "  Added: $($task.key)" -ForegroundColor Yellow
+    $addedCount++
 }
 
 # Write updated content
 Set-Content -Path $TaskFile -Value $updatedContent
-Write-Host "`n✓ Step 1 completed successfully" -ForegroundColor Green
+Write-Host "`nStep 1 completed successfully (added $addedCount task(s))" -ForegroundColor Green
 exit 0

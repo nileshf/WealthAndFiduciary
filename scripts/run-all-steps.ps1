@@ -1,0 +1,95 @@
+#!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+    Run all Jira sync steps in sequence
+.DESCRIPTION
+    Runs all 4 sync steps with environment variables loaded from .env
+#>
+
+param(
+    [string]$EnvFile = "Applications/AITooling/Services/SecurityService/.env"
+)
+
+$ErrorActionPreference = 'Continue'
+
+Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "           Jira Sync - Run All Steps in Sequence                " -ForegroundColor Cyan
+Write-Host "================================================================`n" -ForegroundColor Cyan
+
+# Load environment variables from .env file
+if (Test-Path $EnvFile) {
+    Write-Host "Loading configuration from: $EnvFile" -ForegroundColor Cyan
+    
+    $envLines = Get-Content $EnvFile
+    foreach ($line in $envLines) {
+        if ($line.StartsWith('#') -or [string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+        
+        $parts = $line.Split('=', 2)
+        if ($parts.Count -eq 2) {
+            $key = $parts[0].Trim()
+            $value = $parts[1].Trim()
+            
+            [Environment]::SetEnvironmentVariable($key, $value, [System.EnvironmentVariableTarget]::Process)
+        }
+    }
+    
+    Write-Host "Environment variables loaded" -ForegroundColor Green
+}
+else {
+    Write-Host "ERROR: .env file not found: $EnvFile" -ForegroundColor Red
+    exit 1
+}
+
+# Get service name from environment
+$serviceName = $env:SERVICE_NAME
+if (-not $serviceName) {
+    Write-Host "ERROR: SERVICE_NAME not set" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "`nService: $serviceName" -ForegroundColor Yellow
+Write-Host "----------------------------------------------------------------" -ForegroundColor Cyan
+
+# Step 1
+Write-Host "`n[1] Step 1: Pull Missing Tasks from Jira" -ForegroundColor Green
+& .\scripts\jira-sync-step1-pull-missing-tasks.ps1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Step 1 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+Write-Host "Step 1 completed successfully" -ForegroundColor Green
+
+# Step 2
+Write-Host "`n[2] Step 2: Push New Tasks to Jira" -ForegroundColor Green
+& .\scripts\jira-sync-step2-push-new-tasks.ps1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Step 2 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+Write-Host "Step 2 completed successfully" -ForegroundColor Green
+
+# Step 3
+Write-Host "`n[3] Step 3: Sync Jira Status to Markdown" -ForegroundColor Green
+& .\scripts\jira-sync-step3-sync-jira-status.ps1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Step 3 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+Write-Host "Step 3 completed successfully" -ForegroundColor Green
+
+# Step 4
+Write-Host "`n[4] Step 4: Sync Markdown Status to Jira" -ForegroundColor Green
+& .\scripts\jira-sync-step4-sync-markdown-status.ps1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Step 4 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+Write-Host "Step 4 completed successfully" -ForegroundColor Green
+
+Write-Host "`n==============================================================" -ForegroundColor Green
+Write-Host "              All Steps Completed Successfully!                 " -ForegroundColor Green
+Write-Host "================================================================" -ForegroundColor Green
+
+exit 0

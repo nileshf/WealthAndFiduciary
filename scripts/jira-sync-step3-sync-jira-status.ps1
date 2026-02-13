@@ -34,15 +34,17 @@ if (-not (Test-Path $TaskFile)) {
 
 # Helper: Get Jira Auth
 function Get-JiraAuth {
-    $pair = "$JiraEmail`:$JiraToken"
+    param([string]$Email, [string]$Token)
+    $pair = "$Email`:$Token"
     $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
     return [System.Convert]::ToBase64String($bytes)
 }
 
 # Helper: Get Jira Headers
 function Get-JiraHeaders {
+    param([string]$Email, [string]$Token)
     return @{
-        'Authorization' = "Basic $(Get-JiraAuth)"
+        'Authorization' = "Basic $(Get-JiraAuth -Email $Email -Token $Token)"
         'Content-Type'  = 'application/json'
         'Accept'        = 'application/json'
     }
@@ -50,14 +52,14 @@ function Get-JiraHeaders {
 
 # Fetch Jira issues
 Write-Host "`nFetching Jira issues..." -ForegroundColor Cyan
-$headers = Get-JiraHeaders
+$headers = Get-JiraHeaders -Email $JiraEmail -Token $JiraToken
 $jql = 'project = WEALTHFID'
 $uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status"
 
 try {
     $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
     $jiraIssues = $response.issues
-    Write-Host "✓ Found $($jiraIssues.Count) issues in Jira" -ForegroundColor Green
+    Write-Host "Found issues in Jira" -ForegroundColor Green
 }
 catch {
     Write-Host "✗ Failed to fetch Jira issues: $_" -ForegroundColor Red
@@ -94,7 +96,7 @@ function Get-CheckboxFromStatus {
 
 # Process each line
 foreach ($line in $lines) {
-    if ($line -match '\[([x ~-])\]\s+([A-Z]+-\d+)\s*-\s*(.+)$') {
+    if ($line -match '\[([x ~-])\]\s+([A-Z]+-\d+)\s*-\s*(.+)') {
         $currentCheckbox = $matches[1]
         $key = $matches[2]
         $summary = $matches[3]
@@ -123,7 +125,7 @@ foreach ($line in $lines) {
 }
 
 if ($statusChanges -eq 0) {
-    Write-Host "`n✓ No status changes detected" -ForegroundColor Green
+    Write-Host "No status changes detected" -ForegroundColor Green
     exit 0
 }
 
@@ -131,5 +133,5 @@ if ($statusChanges -eq 0) {
 $updatedContent = $updatedLines -join "`n"
 Set-Content -Path $TaskFile -Value $updatedContent
 
-Write-Host "`n✓ Step 3 completed successfully ($statusChanges status change(s))" -ForegroundColor Green
+Write-Host "`nStep 3 completed successfully ($statusChanges status change(s))" -ForegroundColor Green
 exit 0

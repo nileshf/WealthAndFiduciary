@@ -41,15 +41,17 @@ if (-not (Test-Path $TaskFile)) {
 
 # Helper: Get Jira Auth
 function Get-JiraAuth {
-    $pair = "$JiraEmail`:$JiraToken"
+    param([string]$Email, [string]$Token)
+    $pair = "$Email`:$Token"
     $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
     return [System.Convert]::ToBase64String($bytes)
 }
 
 # Helper: Get Jira Headers
 function Get-JiraHeaders {
+    param([string]$Email, [string]$Token)
     return @{
-        'Authorization' = "Basic $(Get-JiraAuth)"
+        'Authorization' = "Basic $(Get-JiraAuth -Email $Email -Token $Token)"
         'Content-Type'  = 'application/json'
         'Accept'        = 'application/json'
     }
@@ -57,7 +59,7 @@ function Get-JiraHeaders {
 
 # Fetch existing Jira issues
 Write-Host "`nFetching existing Jira issues..." -ForegroundColor Cyan
-$headers = Get-JiraHeaders
+$headers = Get-JiraHeaders -Email $JiraEmail -Token $JiraToken
 $jql = "project = $ProjectKey"
 $uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary"
 
@@ -65,10 +67,10 @@ try {
     $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
     $jiraIssues = $response.issues
     $jiraKeys = $jiraIssues | ForEach-Object { $_.key }
-    Write-Host "✓ Found $($jiraIssues.Count) issues in Jira" -ForegroundColor Green
+    Write-Host "Found issues in Jira" -ForegroundColor Green
 }
 catch {
-    Write-Host "✗ Failed to fetch Jira issues: $_" -ForegroundColor Red
+    Write-Host "Failed to fetch Jira issues: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -76,8 +78,9 @@ catch {
 Write-Host "`nReading tasks from markdown..." -ForegroundColor Cyan
 $content = Get-Content $TaskFile -Raw
 $markdownTasks = @()
+
 $content -split "`n" | ForEach-Object {
-    if ($_ -match '\[([x ~-])\]\s+([A-Z]+-\d+)?\s*-\s*(.+)$') {
+    if ($_ -match '^-\s*\[([^\]]+)\](?:\s+([A-Z]+-\d+)\s*-\s*)?(.+)$') {
         $checkbox = $matches[1]
         $key = $matches[2]
         $summary = $matches[3].Trim()
@@ -90,18 +93,19 @@ $content -split "`n" | ForEach-Object {
         }
     }
 }
-Write-Host "✓ Found $($markdownTasks.Count) tasks in markdown" -ForegroundColor Green
+
+Write-Host "Found tasks in markdown" -ForegroundColor Green
 
 # Find new tasks (no Jira key yet)
 Write-Host "`nFinding new tasks without Jira keys..." -ForegroundColor Cyan
 $newTasks = $markdownTasks | Where-Object { -not $_.key }
 
 if ($newTasks.Count -eq 0) {
-    Write-Host "✓ No new tasks to push" -ForegroundColor Green
+    Write-Host "No new tasks to push" -ForegroundColor Green
     exit 0
 }
 
-Write-Host "✓ Found $($newTasks.Count) new task(s)" -ForegroundColor Yellow
+Write-Host "Found new task(s)" -ForegroundColor Yellow
 
 # Map checkbox to Jira status
 function Get-StatusFromCheckbox {
@@ -122,29 +126,49 @@ $updatedContent = $content
 $updateMap = @{}
 
 foreach ($task in $newTasks) {
-    $status = Get-StatusFromCheckbox $task.checkbox
-    
-    $createBody = @{
-        fields = @{
-            project = @{ key = $ProjectKey }
-            summary = $task.summary
-            issuetype = @{ name = 'Task' }
-            status = @{ name = $status }
-        }
-    } | ConvertTo-Json
-
     try {
+        $status = Get-StatusFromCheckbox $task.checkbox
+        
+        # Create the issue first (without status - determined by workflow)
+        $createBody = @{
+            fields = @{
+                project = @{ key = $ProjectKey }
+                summary = $task.summary
+                issuetype = @{ name = 'Task' }
+                labels = @($ServiceName)
+            }
+        } | ConvertTo-Json
+
         $createUri = "$JiraBaseUrl/rest/api/3/issue"
         $createResponse = Invoke-RestMethod -Uri $createUri -Headers $headers -Method Post -Body $createBody
         $newKey = $createResponse.key
         
-        Write-Host "  ⊕ Created: $newKey - $($task.summary)" -ForegroundColor Yellow
+        Write-Host "Created: $newKey - $($task.summary)" -ForegroundColor Yellow
+        
+        # Get available transitions for this issue
+        $transitionsUri = "$JiraBaseUrl/rest/api/3/issue/$newKey/transitions"
+        $transitionsResponse = Invoke-RestMethod -Uri $transitionsUri -Headers $headers -Method Get
+        
+        # Find the transition that matches the desired status
+        $targetTransition = $transitionsResponse.transitions | Where-Object { $_.to.name -eq $status }
+        
+        if ($targetTransition) {
+            # Update the status
+            $transitionBody = @{
+                transition = @{ id = $targetTransition.id }
+            } | ConvertTo-Json
+            
+            $transitionUri = "$JiraBaseUrl/rest/api/3/issue/$newKey/transitions"
+            Invoke-RestMethod -Uri $transitionUri -Headers $headers -Method Post -Body $transitionBody | Out-Null
+            
+            Write-Host "  Set status to: $status" -ForegroundColor Cyan
+        }
         
         # Store mapping for update
         $updateMap[$task.line] = "- [$($task.checkbox)] $newKey - $($task.summary)"
     }
     catch {
-        Write-Host "  ✗ Failed to create task '$($task.summary)': $_" -ForegroundColor Red
+        Write-Host "Failed to create task '$($task.summary)': $_" -ForegroundColor Red
     }
 }
 
@@ -153,10 +177,10 @@ Write-Host "`nUpdating markdown with Jira keys..." -ForegroundColor Cyan
 foreach ($oldLine in $updateMap.Keys) {
     $newLine = $updateMap[$oldLine]
     $updatedContent = $updatedContent -replace [regex]::Escape($oldLine), $newLine
-    Write-Host "  ✓ Updated: $newLine" -ForegroundColor Green
+    Write-Host "Updated: $newLine" -ForegroundColor Green
 }
 
 # Write updated content
 Set-Content -Path $TaskFile -Value $updatedContent
-Write-Host "`n✓ Step 2 completed successfully" -ForegroundColor Green
+Write-Host "`nStep 2 completed successfully" -ForegroundColor Green
 exit 0
