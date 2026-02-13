@@ -101,8 +101,10 @@ jobs:
           fi
 
       - name: Send Slack notification
-        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        if: always() && env.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
           status: ${{ job.status }}
           text: |
