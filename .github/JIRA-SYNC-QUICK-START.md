@@ -28,11 +28,24 @@ Ensure these files exist:
 
 ### Step 3: Run First Sync (2 minutes)
 
+**Option A: Run All Steps (Recommended)**
 1. Go to GitHub Actions
 2. Click "Jira Sync - Orchestrator"
-3. Click "Run workflow"
-4. Click "Run workflow" button
+3. Click "Run workflow" button
+4. Click "Run workflow"
 5. Wait for completion (usually 2-3 minutes)
+
+**Option B: Run Individual Steps**
+1. Go to GitHub Actions
+2. Select one of these workflows:
+   - "Jira Sync - Step 1 - Pull Missing Tasks (Standalone)"
+   - "Jira Sync - Step 2 - Push New Tasks (Standalone)"
+   - "Jira Sync - Step 3 - Sync Jira Status (Standalone)"
+   - "Jira Sync - Step 4 - Sync Markdown Status (Standalone)"
+3. Click "Run workflow" button
+4. Select service (SecurityService or DataLoaderService)
+5. Click "Run workflow"
+6. Wait for completion (usually 1-2 minutes per step)
 
 ### Step 4: Verify Results (Optional)
 
@@ -42,15 +55,22 @@ Ensure these files exist:
 
 ## 🎯 Common Tasks
 
-### Run Sync for All Services
+### Run All Steps for All Services (Recommended)
 ```
 GitHub Actions → Jira Sync - Orchestrator → Run workflow → Run workflow
 ```
 
-### Run Sync for Specific Service
+### Run All Steps for Specific Service
 ```
 GitHub Actions → Jira Sync - Orchestrator → Run workflow
-Input: service_name = SecurityService
+Input: service_name = SecurityService (or DataLoaderService)
+Click: Run workflow
+```
+
+### Run Individual Step (Standalone)
+```
+GitHub Actions → Jira Sync - Step X - [Name] (Standalone) → Run workflow
+Select: SecurityService or DataLoaderService
 Click: Run workflow
 ```
 
@@ -136,6 +156,7 @@ Check: Transitions are available for status changes
 ## 📚 Full Documentation
 
 For complete documentation, see:
+- **JIRA-SYNC-WORKFLOW-BUTTON-FIX.md**: Explains workflow button issue and solution
 - **JIRA-SYNC-MODULAR-SYSTEM.md**: Complete system documentation
 - **JIRA-SYNC-IMPLEMENTATION-COMPLETE.md**: Implementation details
 - **AUTOMATIC-SYNC-GUIDE.md**: Automatic sync guide

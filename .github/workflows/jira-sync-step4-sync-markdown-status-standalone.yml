@@ -1,0 +1,68 @@
+name: Jira Sync - Step 4 - Sync Markdown Status (Standalone)
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: 'Service to sync (SecurityService or DataLoaderService)'
+        required: true
+        type: choice
+        options:
+          - SecurityService
+          - DataLoaderService
+
+jobs:
+  sync-markdown-status:
+    runs-on: ubuntu-latest
+    name: Sync Status from Markdown to Jira
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PowerShell
+        uses: PowerShell/setup-powershell@v2
+        with:
+          psversion: latest
+
+      - name: Determine task file path
+        id: paths
+        run: |
+          if ("${{ github.event.inputs.service_name }}" -eq "SecurityService") {
+            echo "task_file=Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "task_file=Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Run Step 4 - Sync Markdown Status
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: ${{ github.event.inputs.service_name }}
+          TASK_FILE: ${{ steps.paths.outputs.task_file }}
+        run: |
+          & ./scripts/jira-sync-step4-sync-markdown-status.ps1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Step 4 failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+          }
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore: sync markdown status to Jira for ${{ github.event.inputs.service_name }}'
+          file_pattern: ${{ steps.paths.outputs.task_file }}
+          skip_fetch: false
+          skip_checkout: false
+
+      - name: Send Slack notification
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Jira Sync Step 4 - Sync Markdown Status (${{ github.event.inputs.service_name }}) - ${{ job.status }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

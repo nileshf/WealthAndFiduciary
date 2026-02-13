@@ -1,0 +1,133 @@
+name: Jira Sync - Orchestrator (Simple)
+
+on:
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: 'Service to sync (leave empty for all)'
+        required: false
+        type: string
+
+jobs:
+  sync-all:
+    runs-on: ubuntu-latest
+    name: Sync All Services
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PowerShell
+        shell: pwsh
+        run: |
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+          Write-Host "Current directory: $(Get-Location)"
+
+      - name: Verify Jira credentials
+        shell: pwsh
+        run: |
+          if (-not $env:JIRA_BASE_URL) {
+            Write-Host "❌ JIRA_BASE_URL not set"
+            exit 1
+          }
+          if (-not $env:JIRA_USER_EMAIL) {
+            Write-Host "❌ JIRA_USER_EMAIL not set"
+            exit 1
+          }
+          if (-not $env:JIRA_API_TOKEN) {
+            Write-Host "❌ JIRA_API_TOKEN not set"
+            exit 1
+          }
+          Write-Host "✅ Jira credentials verified"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      - name: Verify task files exist
+        shell: pwsh
+        run: |
+          $files = @(
+            'Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md',
+            'Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md'
+          )
+          
+          foreach ($file in $files) {
+            if (Test-Path $file) {
+              Write-Host "✅ Found: $file"
+            } else {
+              Write-Host "❌ Missing: $file"
+              exit 1
+            }
+          }
+
+      - name: Step 1 - Pull missing tasks from Jira
+        shell: pwsh
+        run: |
+          Write-Host "🔄 Step 1: Pulling missing tasks from Jira..."
+          Write-Host "Service: ${{ github.event.inputs.service_name || 'All' }}"
+          Write-Host "This would pull tasks from Jira that are missing in markdown"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      - name: Step 2 - Push new tasks to Jira
+        shell: pwsh
+        run: |
+          Write-Host "🔄 Step 2: Pushing new tasks to Jira..."
+          Write-Host "This would create new tasks in Jira from markdown"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      - name: Step 3 - Sync Jira status to markdown
+        shell: pwsh
+        run: |
+          Write-Host "🔄 Step 3: Syncing Jira status to markdown..."
+          Write-Host "This would update markdown checkboxes from Jira status"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      - name: Step 4 - Sync markdown status to Jira
+        shell: pwsh
+        run: |
+          Write-Host "🔄 Step 4: Syncing markdown status to Jira..."
+          Write-Host "This would update Jira status from markdown checkboxes"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      - name: Commit changes
+        shell: pwsh
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add -A
+          if (git diff --cached --quiet) {
+            Write-Host "✅ No changes to commit"
+          } else {
+            git commit -m "chore: sync Jira tasks to markdown"
+            git push
+            Write-Host "✅ Changes committed and pushed"
+          }
+
+      - name: Send Slack notification
+        if: always() && env.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          status: ${{ job.status }}
+          text: |
+            Jira Sync Orchestrator Completed
+            Status: ${{ job.status }}
+            Service: ${{ github.event.inputs.service_name || 'All' }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
