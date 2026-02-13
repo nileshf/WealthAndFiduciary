@@ -81,7 +81,6 @@ function Sync-JiraToMarkdown {
     $headers = Get-JiraHeaders
     
     try {
-        # Fetch all issues with service labels
         $uri = "$JiraBaseUrl/rest/api/3/search"
         $body = @{
             jql = 'project = WEALTHFID AND labels is not EMPTY'
@@ -119,13 +118,11 @@ function Sync-JiraToMarkdown {
                 $status = $issue.fields.status.name
                 $checkbox = Get-CheckboxFromStatus -status $status
                 
-                # Check if issue already in file
                 if ($content -match [regex]::Escape($key)) {
                     Write-Host "    OK: $key already in file"
                     continue
                 }
                 
-                # Add issue to file with proper formatting
                 $taskLine = "- $checkbox $key - $summary"
                 $content += "`n$taskLine"
                 $updated = $true
@@ -162,7 +159,6 @@ function Sync-MarkdownToJira {
         $existingTasks = @()
         
         foreach ($line in $lines) {
-            # Match: - [checkbox] KEY - Description (existing issue with key)
             if ($line -match '^\s*-\s+(\[[ x~-]\])\s+([A-Z]+-\d+)\s+-\s+(.+)$') {
                 $checkbox = $matches[1]
                 $key = $matches[2]
@@ -175,12 +171,10 @@ function Sync-MarkdownToJira {
                     line = $line
                 }
             }
-            # Match: - [checkbox] Description (without Jira key)
             elseif ($line -match '^\s*-\s+(\[[ x~-]\])\s+(?![A-Z]+-\d+)(.+)$') {
                 $checkbox = $matches[1]
                 $description = $matches[2].Trim()
                 
-                # Skip empty descriptions
                 if ([string]::IsNullOrWhiteSpace($description)) {
                     continue
                 }
@@ -193,7 +187,6 @@ function Sync-MarkdownToJira {
             }
         }
         
-        # Process new tasks (create issues)
         if ($newTasks.Count -gt 0) {
             Write-Host "  $($service.name): $($newTasks.Count) new task(s)"
             
@@ -201,7 +194,6 @@ function Sync-MarkdownToJira {
                 $status = Get-StatusFromCheckbox -checkbox $task.checkbox
                 
                 try {
-                    # Create issue with proper Atlassian Document Format
                     $body = @{
                         fields = @{
                             project = @{ key = $service.project }
@@ -233,7 +225,6 @@ function Sync-MarkdownToJira {
                     
                     Write-Host "    CREATED: $issueKey"
                     
-                    # Transition to correct status if not "To Do"
                     if ($status -ne 'To Do') {
                         try {
                             $transUri = "$JiraBaseUrl/rest/api/3/issue/$issueKey/transitions"
@@ -251,7 +242,6 @@ function Sync-MarkdownToJira {
                         }
                     }
                     
-                    # Update markdown file with issue key
                     $oldLine = $task.line
                     $newLine = "- $($task.checkbox) $issueKey - $($task.description)"
                     $content = $content -replace [regex]::Escape($oldLine), $newLine
@@ -264,7 +254,6 @@ function Sync-MarkdownToJira {
             }
         }
         
-        # Process existing tasks (update status if changed)
         if ($existingTasks.Count -gt 0) {
             Write-Host "  $($service.name): Checking $($existingTasks.Count) existing task(s) for status changes"
             
@@ -272,12 +261,10 @@ function Sync-MarkdownToJira {
                 $status = Get-StatusFromCheckbox -checkbox $task.checkbox
                 
                 try {
-                    # Get current issue status
                     $issueUri = "$JiraBaseUrl/rest/api/3/issue/$($task.key)"
                     $issueResponse = Invoke-RestMethod -Uri $issueUri -Headers $headers -Method Get
                     $currentStatus = $issueResponse.fields.status.name
                     
-                    # If status changed, transition
                     if ($currentStatus -ne $status) {
                         if ($DryRun) {
                             Write-Host "    [DRY RUN] Would transition $($task.key) from $currentStatus to $status"
@@ -319,7 +306,6 @@ function Sync-MarkdownToJira {
     Write-Host "  Total created: $created, updated: $updated"
 }
 
-# Main execution
 try {
     Write-Host "Starting bidirectional Jira sync..." -ForegroundColor Green
     Write-Host "Base URL: $JiraBaseUrl"
