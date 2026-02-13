@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "mcp-atlassian": {
+      "args": [
+        "mcp-atlassian"
+      ],
+      "command": "uvx",
+      "env": {
+        "CONFLUENCE_API_TOKEN": "ATATT3xFfGF0Wa1kW92htx6CAbeEPUECazIpi0FTe7L8hx7B32F3HjKOgZEMNPL4j3aUPqJgQe-CK9OsJxtNRhrI0ElnlABPEvKpD-n6Gk8OX-IvA1LUElL_fW7t53fvep-6Px8YU-rUH-VjjRXCDyHo7WzqvjUqHRUTKCx9-IzUyKSso1bzClc=D82B1124",
+        "CONFLUENCE_URL": "https://nileshf.atlassian.net/wiki",
+        "CONFLUENCE_USERNAME": "nileshf@gmail.com",
+        "JIRA_API_TOKEN": "ATATT3xFfGF0cTOTlUhjsmuOzAGU0wGhtnyles5PD9FuJr4QN1U86KgqE-m1eTuzEWAww-TOm4ziTN-k3RWnvT_6juPtefGXgN3KQqTu4UG7xEn3EcPD0x6Zz57z4-lvG8vzB9hbR5eoP22g4pYNFiURtuzUDYWtej9eDe9wq-8Fux7RqkjRsi8=ECAE8F53",
+        "JIRA_URL": "https://nileshf.atlassian.net",
+        "JIRA_USERNAME": "nileshf@gmail.com"
+      }
+    }
+  }
+}

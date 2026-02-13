@@ -21,6 +21,7 @@
 - [-] WEALTHFID-219 - Implement health check endpoints
 - [-] WEALTHFID-220 - Add monitoring and alerting
 - [ ] WEALTHFID-227 - Test task to jira 3
+- [ ] Test task hook, kiro
 
 
 
