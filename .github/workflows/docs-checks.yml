@@ -58,10 +58,10 @@ jobs:
           required_files=(
             "README.md"
             ".github/CODEOWNERS"
-            ".kiro/steering/org-architecture.md"
-            ".kiro/steering/org-coding-standards.md"
-            ".kiro/steering/org-testing-standards.md"
-            ".kiro/steering/org-code-review-standards.md"
+            ".kiro/steering/wealth-and-fiduciary-architecture.md"
+            ".kiro/steering/wealth-and-fiduciary-coding-standards.md"
+            ".kiro/steering/wealth-and-fiduciary-testing-standards.md"
+            ".kiro/steering/wealth-and-fiduciary-code-review-standards.md"
             "docs/README.md"
           )
           
