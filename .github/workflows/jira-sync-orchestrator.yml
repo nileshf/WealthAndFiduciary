@@ -23,12 +23,8 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Setup PowerShell
-        uses: actions/powershell@v1
-        with:
-          powershell-version: 'latest'
-
       - name: Run Jira sync for SecurityService
+        shell: pwsh
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
@@ -67,12 +63,8 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Setup PowerShell
-        uses: actions/powershell@v1
-        with:
-          powershell-version: 'latest'
-
       - name: Run Jira sync for DataLoaderService
+        shell: pwsh
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
