@@ -1,0 +1,165 @@
+name: Documentation Checks
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  # Check for broken links in markdown files
+  markdown-link-check:
+    name: 📝 Check Markdown Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          config-file: '.github/markdown-link-check-config.json'
+        continue-on-error: true
+      
+      - name: Report status
+        run: echo "✅ Markdown link check complete"
+
+  # Validate markdown formatting
+  markdown-lint:
+    name: 🎨 Lint Markdown Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Lint markdown files
+        uses: DavidAnson/markdownlint-cli2-action@v15
+        with:
+          globs: '**/*.md'
+        continue-on-error: true
+      
+      - name: Report status
+        run: echo "✅ Markdown linting complete"
+
+  # Check file structure
+  file-structure:
+    name: 📁 Validate File Structure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check required files exist
+        run: |
+          echo "Checking required files..."
+          
+          # Check for required files
+          required_files=(
+            "README.md"
+            ".github/CODEOWNERS"
+            ".kiro/steering/org-architecture.md"
+            ".kiro/steering/org-coding-standards.md"
+            ".kiro/steering/org-testing-standards.md"
+            ".kiro/steering/org-code-review-standards.md"
+            "docs/README.md"
+          )
+          
+          missing_files=()
+          
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing: $file"
+              missing_files+=("$file")
+            else
+              echo "✅ Found: $file"
+            fi
+          done
+          
+          if [ ${#missing_files[@]} -gt 0 ]; then
+            echo ""
+            echo "❌ Missing ${#missing_files[@]} required file(s)"
+            exit 1
+          else
+            echo ""
+            echo "✅ All required files present"
+          fi
+      
+      - name: Check folder structure
+        run: |
+          echo "Checking folder structure..."
+          
+          required_folders=(
+            ".kiro/steering"
+            ".kiro/steering/Applications"
+            ".kiro/steering/Applications/FullView"
+            ".kiro/steering/Applications/AITooling"
+            ".github"
+            "docs"
+            "docs/github-workflow"
+          )
+          
+          for folder in "${required_folders[@]}"; do
+            if [ ! -d "$folder" ]; then
+              echo "❌ Missing folder: $folder"
+              exit 1
+            else
+              echo "✅ Found folder: $folder"
+            fi
+          done
+          
+          echo ""
+          echo "✅ Folder structure is correct"
+
+  # Summary
+  summary:
+    name: 📋 Checks Summary
+    runs-on: ubuntu-latest
+    needs: [markdown-link-check, markdown-lint, file-structure]
+    if: always()
+    steps:
+      - name: Check job statuses
+        run: |
+          echo "markdown-link-check: ${{ needs.markdown-link-check.result }}"
+          echo "markdown-lint: ${{ needs.markdown-lint.result }}"
+          echo "file-structure: ${{ needs.file-structure.result }}"
+      
+      - name: Generate summary
+        run: |
+          echo "## 📊 Documentation Checks Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.markdown-link-check.result }}" == "success" ]; then
+            echo "| 📝 Markdown Links | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 📝 Markdown Links | ⚠️ WARNING |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.markdown-lint.result }}" == "success" ]; then
+            echo "| 🎨 Markdown Linting | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🎨 Markdown Linting | ⚠️ WARNING |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.file-structure.result }}" == "success" ]; then
+            echo "| 📁 File Structure | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 📁 File Structure | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall status (only fail if file structure fails)
+          if [ "${{ needs.file-structure.result }}" == "success" ]; then
+            echo "✅ **Documentation checks complete!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **File structure validation failed.**" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Fail if file structure failed
+        if: needs.file-structure.result != 'success'
+        run: |
+          echo "File structure validation failed"
+          exit 1

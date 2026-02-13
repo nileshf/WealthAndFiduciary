@@ -1,0 +1,105 @@
+name: Bug Tracking Automation
+
+on:
+  schedule:
+    # Run every 1 minute (for demo)
+    - cron: '*/1 * * * *'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync all bugs to Jira'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: write
+
+jobs:
+  monitor-and-track:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup PowerShell
+        shell: pwsh
+        run: |
+          Write-Host "[INFO] PowerShell version: $($PSVersionTable.PSVersion)"
+          Write-Host "[INFO] Current directory: $(Get-Location)"
+      
+      - name: Monitor PR Rejections
+        shell: pwsh
+        run: |
+          Write-Host "[INFO] Starting PR rejection monitoring..."
+          .\scripts\monitor-pr-rejections.ps1
+          Write-Host "[SUCCESS] PR monitoring complete"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Generate Bug Dashboard
+        shell: pwsh
+        run: |
+          Write-Host "[INFO] Generating bug dashboard..."
+          .\scripts\generate-bug-dashboard.ps1
+          Write-Host "[SUCCESS] Dashboard generation complete"
+      
+      - name: Check for changes
+        id: check_changes
+        shell: pwsh
+        run: |
+          $changes = git status --porcelain
+          if ($changes) {
+            Write-Host "[INFO] Changes detected:"
+            Write-Host $changes
+            echo "has_changes=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "[INFO] No changes detected"
+            echo "has_changes=false" >> $env:GITHUB_OUTPUT
+          }
+      
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        shell: pwsh
+        run: |
+          git config user.name "Bug Tracker Bot"
+          git config user.email "bug-tracker-bot@github.com"
+          git add BUGS.md BUG-DASHBOARD.md
+          git commit -m "chore: update bug tracking [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "Bug Tracking Automation Summary" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host ""
+          
+          if (Test-Path "BUGS.md") {
+            $bugContent = Get-Content "BUGS.md" -Raw
+            $todoCount = ([regex]::Matches($bugContent, "## TODO")).Count
+            $inProgressCount = ([regex]::Matches($bugContent, "## IN PROGRESS")).Count
+            $testingCount = ([regex]::Matches($bugContent, "## TESTING")).Count
+            $readyCount = ([regex]::Matches($bugContent, "## READY TO MERGE")).Count
+            $doneCount = ([regex]::Matches($bugContent, "## DONE")).Count
+            
+            Write-Host "[INFO] Bug Status:" -ForegroundColor Yellow
+            Write-Host "  - TODO: $todoCount"
+            Write-Host "  - IN PROGRESS: $inProgressCount"
+            Write-Host "  - TESTING: $testingCount"
+            Write-Host "  - READY TO MERGE: $readyCount"
+            Write-Host "  - DONE: $doneCount"
+          }
+          
+          Write-Host ""
+          Write-Host "[SUCCESS] Workflow completed successfully" -ForegroundColor Green
