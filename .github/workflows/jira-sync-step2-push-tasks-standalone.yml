@@ -26,11 +26,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup PowerShell
-        uses: PowerShell/setup-powershell@v2
-        with:
-          psversion: latest
-
       - name: Determine task file path
         id: paths
         run: |
