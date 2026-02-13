@@ -28,9 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup PowerShell
-        uses: actions/setup-powershell@v2
-        with:
-          powershell-version: latest
+        uses: actions/powershell@v1
 
       - name: Run Step 2 - Push New Tasks
         shell: pwsh
