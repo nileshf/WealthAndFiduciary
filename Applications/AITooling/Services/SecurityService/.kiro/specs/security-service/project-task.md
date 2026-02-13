@@ -19,4 +19,4 @@
 - [-] WEALTHFID-207 - Add data validation logic
 - [-] WEALTHFID-206 - Implement CSV file upload endpoint
 - [ ] WEALTHFID-159 - data loader Task: hi there
-- [ ] WEALTHFID-158 - Security service Task: hello
+
