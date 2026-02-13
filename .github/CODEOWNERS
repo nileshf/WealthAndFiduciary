@@ -1,0 +1,43 @@
+# WealthAndFiduciary Code Owners
+# 
+# This file defines who is responsible for code in this repository.
+# Each line is a file pattern followed by one or more owners.
+#
+# Order is important; the last matching pattern takes precedence.
+# For more information: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @nileshf
+
+# Business Unit Standards
+/.kiro/steering/org-*.md @nileshf
+/.kiro/steering/FOUR-LEVEL-STRUCTURE.md @nileshf
+/.kiro/steering/CODE-REVIEW-DIAGRAM.md @nileshf
+/.kiro/steering/DOCUMENTATION-REFERENCE.md @nileshf
+
+# FullView Application
+/Applications/FullView/ @nileshf
+/.kiro/steering/Applications/FullView/ @nileshf
+
+# AITooling Application
+/Applications/AITooling/ @nileshf
+/.kiro/steering/Applications/AITooling/ @nileshf
+
+# DataLoaderService
+/Applications/AITooling/Services/DataLoaderService/ @nileshf
+/Applications/AITooling/Services/DataLoaderService.Tests/ @nileshf
+/.kiro/steering/Applications/AITooling/services/DataLoaderService/ @nileshf
+
+# SecurityService
+/Applications/AITooling/Services/SecurityService/ @nileshf
+/Applications/AITooling/Services/SecurityService.Tests/ @nileshf
+/.kiro/steering/Applications/AITooling/services/SecurityService/ @nileshf
+
+# GitHub Workflows
+/.github/workflows/ @nileshf
+
+# Documentation
+/docs/ @nileshf
+
+# Scripts
+/scripts/ @nileshf
