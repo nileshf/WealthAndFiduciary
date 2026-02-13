@@ -157,20 +157,4 @@ public class DataController : ControllerBase
 
         return Ok(data.Name);
     }
-
-    /// <summary>
-    /// Health check endpoint
-    /// </summary>
-    /// <returns>Health status</returns>
-    [HttpGet("health")]
-    [AllowAnonymous]
-    public IActionResult HealthCheck()
-    {
-        return Ok(new
-        {
-            status = "healthy",
-            timestamp = DateTime.UtcNow
-
-        });
-    }
 }
