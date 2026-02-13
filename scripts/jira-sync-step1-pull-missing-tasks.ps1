@@ -68,9 +68,22 @@ catch {
 Write-Host "`nReading existing tasks from markdown..." -ForegroundColor Cyan
 $content = Get-Content $TaskFile -Raw
 $existingKeys = @()
+$tasksWithoutKeys = @()
+
 $content -split "`n" | ForEach-Object {
-    if ($_ -match '\[([x ~-])\]\s+([A-Z]+-\d+)') {
+    if ($_ -match '\[([x ~-])\]\s+([A-Z]+-\d+)\s*-\s*(.+)') {
+        # Task with Jira key
         $existingKeys += $matches[2]
+    }
+    elseif ($_ -match '\[([x ~-])\]\s*-\s*(.+)') {
+        # Task without Jira key - store for matching
+        $checkbox = $matches[1]
+        $summary = $matches[2].Trim()
+        $tasksWithoutKeys += @{
+            checkbox = $checkbox
+            summary  = $summary
+            line     = $_
+        }
     }
 }
 Write-Host "✓ Found $($existingKeys.Count) existing tasks in markdown" -ForegroundColor Green
