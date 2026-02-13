@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Jira Sync on Save",
+  "description": "Automatically sync Jira tasks when project-task.md is saved",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": []
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "",
+    "timeout": 120
+  }
+}
