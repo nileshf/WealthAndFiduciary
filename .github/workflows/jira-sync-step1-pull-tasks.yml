@@ -24,9 +24,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup PowerShell
-        uses: PowerShell/setup-powershell@v2
+        uses: actions/setup-powershell@v2
         with:
-          psversion: latest
+          powershell-version: latest
 
       - name: Run Step 1 - Pull Missing Tasks
         shell: pwsh
