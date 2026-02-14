@@ -7,7 +7,7 @@
 #>
 
 param(
-    [string]$EnvFile = "Applications/AITooling/Services/SecurityService/.env"
+    [string]$EnvFile = ".env"
 )
 
 $ErrorActionPreference = 'Continue'
@@ -36,6 +36,31 @@ if (Test-Path $EnvFile) {
     }
     
     Write-Host "Environment variables loaded" -ForegroundColor Green
+    
+    # Display loaded environment variables
+    Write-Host "`nLoaded Environment Variables:" -ForegroundColor Cyan
+    Write-Host "-----------------------------" -ForegroundColor Cyan
+    foreach ($line in $envLines) {
+        if ($line.StartsWith('#') -or [string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+        
+        $parts = $line.Split('=', 2)
+        if ($parts.Count -eq 2) {
+            $key = $parts[0].Trim()
+            $value = $parts[1].Trim()
+            
+            # Mask sensitive values
+            if ($key -match 'PASSWORD|SECRET|TOKEN|KEY|CREDENTIAL') {
+                $maskedValue = if ($value.Length -gt 4) { "*" * ($value.Length - 4) + $value.Substring($value.Length - 4) } else { "****" }
+                Write-Host "  $key=$maskedValue" -ForegroundColor Yellow
+            }
+            else {
+                Write-Host "  $key=$value" -ForegroundColor Yellow
+            }
+        }
+    }
+    Write-Host "-----------------------------" -ForegroundColor Cyan
 }
 else {
     Write-Host "ERROR: .env file not found: $EnvFile" -ForegroundColor Red

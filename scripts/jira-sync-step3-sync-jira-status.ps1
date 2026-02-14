@@ -1,9 +1,9 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Step 3: Sync status changes from Jira to project-task.md
+    Step 4: Sync status changes from project-task.md to Jira
 .DESCRIPTION
-    If task status changes in Jira, update the checkbox in project-task.md
+    If task status changes in project-task.md, update the status in Jira
     to reflect the new status
 #>
 
@@ -17,7 +17,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-Write-Host "=== Step 3: Sync Status Changes from Jira ===" -ForegroundColor Green
+Write-Host "=== Step 4: Sync Status Changes to Jira ===" -ForegroundColor Green
 Write-Host "Service: $ServiceName"
 Write-Host "Task File: $TaskFile"
 
@@ -54,7 +54,7 @@ function Get-JiraHeaders {
 Write-Host "`nFetching Jira issues..." -ForegroundColor Cyan
 $headers = Get-JiraHeaders -Email $JiraEmail -Token $JiraToken
 $jql = 'project = WEALTHFID'
-$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status"
+$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status&expand=transitions"
 
 try {
     $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
@@ -66,72 +66,93 @@ catch {
     exit 1
 }
 
-# Create status map
-$statusMap = @{}
+# Create Jira status map
+$jiraStatusMap = @{}
 foreach ($issue in $jiraIssues) {
-    $statusMap[$issue.key] = $issue.fields.status.name
+    $jiraStatusMap[$issue.key] = @{
+        status      = $issue.fields.status.name
+        transitions = $issue.transitions
+    }
+}
+
+# Map checkbox to Jira status
+function Get-StatusFromCheckbox {
+    param([string]$checkbox)
+    
+    switch ($checkbox) {
+        ' ' { return 'To Do' }
+        '-' { return 'In Progress' }
+        '~' { return 'Testing' }
+        'x' { return 'Done' }
+        default { return 'To Do' }
+    }
+}
+
+# Get transition ID for target status
+function Get-TransitionId {
+    param(
+        [object]$transitions,
+        [string]$targetStatus
+    )
+    
+    foreach ($transition in $transitions) {
+        if ($transition.to.name -eq $targetStatus) {
+            return $transition.id
+        }
+    }
+    return $null
 }
 
 # Read tasks from markdown
 Write-Host "`nReading tasks from markdown..." -ForegroundColor Cyan
 $content = Get-Content $TaskFile -Raw
 $lines = $content -split "`n"
-$updatedLines = @()
-$statusChanges = 0
-
-# Map Jira status to checkbox
-function Get-CheckboxFromStatus {
-    param([string]$status)
-    
-    switch ($status.ToLower()) {
-        'to do' { return ' ' }
-        'in progress' { return '-' }
-        'in review' { return '-' }
-        'testing' { return '~' }
-        'ready to merge' { return '~' }
-        'done' { return 'x' }
-        default { return ' ' }
-    }
-}
+$statusUpdates = 0
 
 # Process each line
 foreach ($line in $lines) {
     if ($line -match '\[([x ~-])\]\s+([A-Z]+-\d+)\s*-\s*(.+)') {
-        $currentCheckbox = $matches[1]
+        $checkbox = $matches[1]
         $key = $matches[2]
         $summary = $matches[3]
         
-        if ($statusMap.ContainsKey($key)) {
-            $jiraStatus = $statusMap[$key]
-            $newCheckbox = Get-CheckboxFromStatus $jiraStatus
+        if ($jiraStatusMap.ContainsKey($key)) {
+            $jiraStatus = $jiraStatusMap[$key].status
+            $targetStatus = Get-StatusFromCheckbox $checkbox
             
-            if ($currentCheckbox -ne $newCheckbox) {
-                $newLine = "- [$newCheckbox] $key - $summary"
-                $updatedLines += $newLine
-                Write-Host "  ⟳ Updated: $key from [$currentCheckbox] to [$newCheckbox]" -ForegroundColor Yellow
-                $statusChanges++
-            }
-            else {
-                $updatedLines += $line
+            if ($jiraStatus -ne $targetStatus) {
+                # Find transition
+                $transitions = $jiraStatusMap[$key].transitions
+                $transitionId = Get-TransitionId $transitions $targetStatus
+                
+                if ($transitionId) {
+                    # Update Jira status
+                    $transitionUri = "$JiraBaseUrl/rest/api/3/issue/$key/transitions"
+                    $transitionBody = @{
+                        transition = @{ id = $transitionId }
+                    } | ConvertTo-Json
+
+                    try {
+                        Invoke-RestMethod -Uri $transitionUri -Headers $headers -Method Post -Body $transitionBody | Out-Null
+                        Write-Host "  Updated: $key to [$checkbox] ($targetStatus)" -ForegroundColor Yellow
+                        $statusUpdates++
+                    }
+                    catch {
+                        Write-Host "  Failed to update $key" -ForegroundColor Red
+                    }
+                }
+                else {
+                    Write-Host "  No transition available for $key to $targetStatus" -ForegroundColor Yellow
+                }
             }
         }
-        else {
-            $updatedLines += $line
-        }
-    }
-    else {
-        $updatedLines += $line
     }
 }
 
-if ($statusChanges -eq 0) {
-    Write-Host "No status changes detected" -ForegroundColor Green
+if ($statusUpdates -eq 0) {
+    Write-Host "No status updates needed" -ForegroundColor Green
     exit 0
 }
 
-# Write updated content
-$updatedContent = $updatedLines -join "`n"
-Set-Content -Path $TaskFile -Value $updatedContent
-
-Write-Host "`nStep 3 completed successfully ($statusChanges status change(s))" -ForegroundColor Green
+Write-Host "`nStep 4 completed successfully ($statusUpdates status update(s))" -ForegroundColor Green
 exit 0

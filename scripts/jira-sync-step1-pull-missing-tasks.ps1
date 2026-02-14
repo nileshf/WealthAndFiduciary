@@ -12,7 +12,8 @@ param(
     [string]$JiraEmail = $env:JIRA_USER_EMAIL,
     [string]$JiraToken = $env:JIRA_API_TOKEN,
     [string]$ServiceName = $env:SERVICE_NAME,
-    [string]$TaskFile = $env:TASK_FILE
+    [string]$TaskFile = $env:TASK_FILE,
+    [string]$ProjectKey = $env:JIRA_PROJECT_KEY
 )
 
 $ErrorActionPreference = 'Continue'
@@ -20,10 +21,19 @@ $ErrorActionPreference = 'Continue'
 Write-Host "=== Step 1: Pull Missing Tasks from Jira ===" -ForegroundColor Green
 Write-Host "Service: $ServiceName"
 Write-Host "Task File: $TaskFile"
+Write-Host "Project Key: $ProjectKey"
 
 # Validation
 if (-not $JiraBaseUrl -or -not $JiraEmail -or -not $JiraToken) {
     Write-Host "ERROR: Missing Jira credentials" -ForegroundColor Red
+    Write-Host "  JIRA_BASE_URL: $([bool]$JiraBaseUrl)" -ForegroundColor Yellow
+    Write-Host "  JIRA_USER_EMAIL: $([bool]$JiraEmail)" -ForegroundColor Yellow
+    Write-Host "  JIRA_API_TOKEN: $([bool]$JiraToken) (length: $($JiraToken.Length))" -ForegroundColor Yellow
+    exit 1
+}
+
+if (-not $ProjectKey) {
+    Write-Host "ERROR: Missing JIRA_PROJECT_KEY" -ForegroundColor Red
     exit 1
 }
 
@@ -36,7 +46,10 @@ if (-not (Test-Path $TaskFile)) {
 function Get-JiraAuth {
     $pair = "$JiraEmail`:$JiraToken"
     $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
-    return [System.Convert]::ToBase64String($bytes)
+    $base64 = [System.Convert]::ToBase64String($bytes)
+    Write-Host "  Auth string length: $($pair.Length)" -ForegroundColor Gray
+    Write-Host "  Base64 length: $($base64.Length)" -ForegroundColor Gray
+    return $base64
 }
 
 # Helper: Get Jira Headers
@@ -50,17 +63,61 @@ function Get-JiraHeaders {
 
 # Fetch Jira issues
 Write-Host "`nFetching Jira issues..." -ForegroundColor Cyan
+Write-Host "  Base URL: $JiraBaseUrl" -ForegroundColor Gray
+Write-Host "  Email: $JiraEmail" -ForegroundColor Gray
+$jql = "project = $ProjectKey"
+Write-Host "  JQL: $jql" -ForegroundColor Gray
 $headers = Get-JiraHeaders
-$jql = 'project = WEALTHFID'
+$authHeader = $headers['Authorization']
+$shortAuth = if ($authHeader.Length -gt 50) { $authHeader.Substring(0, 50) + "..." } else { $authHeader }
+Write-Host "  Authorization header: $shortAuth" -ForegroundColor Gray
 $uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status,description,labels"
 
 try {
     $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
     $jiraIssues = $response.issues
-    Write-Host "Found issues in Jira" -ForegroundColor Green
+    Write-Host "Found issues in Jira: $($jiraIssues.Count)" -ForegroundColor Green
+    
+    # Debug: Show first few issues
+    if ($jiraIssues.Count -gt 0) {
+        Write-Host "  Sample issues:" -ForegroundColor Cyan
+        $jiraIssues | Select-Object -First 3 | ForEach-Object {
+            Write-Host "    $($_.key): $($_.fields.summary)" -ForegroundColor Gray
+        }
+    }
+    else {
+        Write-Host "  No issues found. Checking if project exists..." -ForegroundColor Yellow
+        # Try to get project info
+        $projectUri = "$JiraBaseUrl/rest/api/3/project/$ProjectKey"
+        try {
+            $projectResponse = Invoke-RestMethod -Uri $projectUri -Headers $headers -Method Get
+            Write-Host "  Project $ProjectKey exists: $($projectResponse.name)" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "  Project $ProjectKey not found or no access" -ForegroundColor Yellow
+            Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Yellow
+            
+            # List all accessible projects
+            Write-Host "  Listing accessible projects..." -ForegroundColor Cyan
+            $projectsUri = "$JiraBaseUrl/rest/api/3/project"
+            try {
+                $projectsResponse = Invoke-RestMethod -Uri $projectsUri -Headers $headers -Method Get
+                Write-Host "  Accessible projects:" -ForegroundColor Cyan
+                $projectsResponse | ForEach-Object {
+                    Write-Host "    $($_.key): $($_.name)" -ForegroundColor Gray
+                }
+            }
+            catch {
+                Write-Host "  Could not list projects: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+    }
 }
 catch {
-    Write-Host "ERROR: Failed to fetch Jira issues: $_" -ForegroundColor Red
+    Write-Host "ERROR: Failed to fetch Jira issues" -ForegroundColor Red
+    Write-Host "  Status Code: $($_.Exception.Response.StatusCode)" -ForegroundColor Yellow
+    Write-Host "  Status Description: $($_.Exception.Response.StatusDescription)" -ForegroundColor Yellow
+    Write-Host "  Error Message: $($_.ErrorDetails.Message)" -ForegroundColor Yellow
     exit 1
 }
 
@@ -87,15 +144,19 @@ $content -split "`n" | ForEach-Object {
     }
 }
 Write-Host "Found $($existingKeys.Count) existing tasks in markdown" -ForegroundColor Green
+Write-Host "Found $($tasksWithoutKeys.Count) tasks without Jira keys" -ForegroundColor Gray
 
 # Find missing tasks
 Write-Host "`nFinding missing tasks..." -ForegroundColor Cyan
+Write-Host "  Total Jira issues fetched: $($jiraIssues.Count)" -ForegroundColor Gray
 $missingTasks = @()
 foreach ($issue in $jiraIssues) {
     if ($issue.key -notin $existingKeys) {
         $missingTasks += $issue
     }
 }
+
+Write-Host "  Found $($missingTasks.Count) missing task(s) (not in markdown)" -ForegroundColor Gray
 
 if ($missingTasks.Count -eq 0) {
     Write-Host "No missing tasks" -ForegroundColor Green
@@ -192,20 +253,26 @@ if ($tasksWithoutKeys.Count -gt 0) {
 
 # Add missing tasks to markdown (only if they match current service)
 Write-Host "`nAdding missing tasks to markdown..." -ForegroundColor Cyan
+Write-Host "  Service name: $ServiceName" -ForegroundColor Gray
 $updatedContent = Get-Content $TaskFile -Raw
 $addedCount = 0
+$skippedCount = 0
 
 foreach ($task in $missingTasks) {
     # Check if task has labels
     $taskLabels = $task.fields.labels
+    Write-Host "  Checking: $($task.key) - Labels: $($taskLabels -join ', ')" -ForegroundColor Gray
+    
     if (-not $taskLabels -or $taskLabels.Count -eq 0) {
-        Write-Host "  Skipped: $($task.key) (no labels)" -ForegroundColor Gray
+        Write-Host "    Skipped: $($task.key) (no labels)" -ForegroundColor Gray
+        $skippedCount++
         continue
     }
     
     # Check if any label matches the current service
     $hasServiceLabel = $false
     foreach ($label in $taskLabels) {
+        Write-Host "    Comparing label '$label' to service '$ServiceName'" -ForegroundColor Gray
         if ($label.ToLower() -eq $ServiceName.ToLower()) {
             $hasServiceLabel = $true
             break
@@ -213,16 +280,19 @@ foreach ($task in $missingTasks) {
     }
     
     if (-not $hasServiceLabel) {
-        Write-Host "  Skipped: $($task.key) (no matching service label)" -ForegroundColor Gray
+        Write-Host "    Skipped: $($task.key) (no matching service label)" -ForegroundColor Gray
+        $skippedCount++
         continue
     }
     
     $checkbox = Get-CheckboxFromStatus $task.fields.status.name
     $newLine = "- [$checkbox] $($task.key) - $($task.fields.summary)"
     $updatedContent += "`n$newLine"
-    Write-Host "  Added: $($task.key)" -ForegroundColor Yellow
+    Write-Host "    Added: $($task.key)" -ForegroundColor Yellow
     $addedCount++
 }
+
+Write-Host "  Total skipped (no labels or no service match): $skippedCount" -ForegroundColor Gray
 
 # Write updated content
 Set-Content -Path $TaskFile -Value $updatedContent

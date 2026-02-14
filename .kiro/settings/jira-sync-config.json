@@ -1,8 +1,8 @@
 {
     "JiraToken":  "ATATT3xFfGF0cTOTlUhjsmuOzAGU0wGhtnyles5PD9FuJr4QN1U86KgqE-m1eTuzEWAww-TOm4ziTN-k3RWnvT_6juPtefGXgN3KQqTu4UG7xEn3EcPD0x6Zz57z4-lvG8vzB9hbR5eoP22g4pYNFiURtuzUDYWtej9eDe9wq-8Fux7RqkjRsi8=ECAE8F53",
-    "ServiceName":  "DataLoaderService",
+    "ServiceName":  "SecurityService",
     "JiraProjectKey":  "WEALTHFID",
     "JiraBaseUrl":  "https://nileshf.atlassian.net",
-    "TaskFile":  "Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md",
+    "TaskFile":  "Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md",
     "JiraEmail":  "nileshf@gmail.com"
 }

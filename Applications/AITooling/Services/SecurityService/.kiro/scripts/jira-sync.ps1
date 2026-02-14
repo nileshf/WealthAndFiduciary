@@ -42,7 +42,7 @@ if (-not (Test-Path $EnvFile)) {
 Write-Host "Loading environment from: $EnvFile" -ForegroundColor Gray
 $env:JIRA_BASE_URL = (Get-Content $EnvFile | Select-String 'JIRA_BASE_URL=' | ForEach-Object { $_.Line -replace '^JIRA_BASE_URL=', '' }).Trim()
 $env:JIRA_PROJECT_KEY = (Get-Content $EnvFile | Select-String 'JIRA_PROJECT_KEY=' | ForEach-Object { $_.Line -replace '^JIRA_PROJECT_KEY=', '' }).Trim()
-$env:JIRA_EMAIL = (Get-Content $EnvFile | Select-String 'JIRA_EMAIL=' | ForEach-Object { $_.Line -replace '^JIRA_EMAIL=', '' }).Trim()
+$env:JIRA_EMAIL = (Get-Content $EnvFile | Select-String 'JIRA_USER_EMAIL=' | ForEach-Object { $_.Line -replace '^JIRA_USER_EMAIL=', '' }).Trim()
 $env:JIRA_API_TOKEN = (Get-Content $EnvFile | Select-String 'JIRA_API_TOKEN=' | ForEach-Object { $_.Line -replace '^JIRA_API_TOKEN=', '' }).Trim()
 
 if (-not $env:JIRA_BASE_URL -or -not $env:JIRA_PROJECT_KEY -or -not $env:JIRA_EMAIL -or -not $env:JIRA_API_TOKEN) {

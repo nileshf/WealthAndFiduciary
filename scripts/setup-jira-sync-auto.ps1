@@ -45,7 +45,7 @@ foreach ($line in $envLines) {
         $value = $parts[1].Trim()
         
         if ($key -eq 'JIRA_BASE_URL') { $config.JiraBaseUrl = $value }
-        if ($key -eq 'JIRA_EMAIL') { $config.JiraEmail = $value }
+        if ($key -eq 'JIRA_USER_EMAIL') { $config.JiraEmail = $value }
         if ($key -eq 'JIRA_API_TOKEN') { $config.JiraToken = $value }
         if ($key -eq 'JIRA_PROJECT_KEY') { $config.JiraProjectKey = $value }
     }

@@ -168,7 +168,15 @@ foreach ($task in $newTasks) {
         $updateMap[$task.line] = "- [$($task.checkbox)] $newKey - $($task.summary)"
     }
     catch {
-        Write-Host "Failed to create task '$($task.summary)': $_" -ForegroundColor Red
+        Write-Host "Failed to create task '$($task.summary)'" -ForegroundColor Red
+        Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Yellow
+        if ($_.Exception.Response) {
+            Write-Host "  Status Code: $($_.Exception.Response.StatusCode)" -ForegroundColor Yellow
+            Write-Host "  Status Description: $($_.Exception.Response.StatusDescription)" -ForegroundColor Yellow
+        }
+        if ($_.ErrorDetails) {
+            Write-Host "  Error Details: $($_.ErrorDetails.Message)" -ForegroundColor Yellow
+        }
     }
 }
 
