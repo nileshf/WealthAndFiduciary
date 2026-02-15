@@ -29,7 +29,7 @@ jobs:
       - name: Extract Jira issue key
         id: jira
         run: |
-          ISSUE_KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oP '[A-Z]+-\d+' || echo "")
+          ISSUE_KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oiP '[A-Z]+-\d+' | head -1 || echo "")
           echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
       
       - name: Get Jira transitions
