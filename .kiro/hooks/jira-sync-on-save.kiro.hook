@@ -1,0 +1,13 @@
+{
+  "name": "Jira Sync - On Save",
+  "version": "1.0.0",
+  "description": "Syncs Jira tasks when saving a project-task.md file",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["**/.kiro/specs/**/project-task.md"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Run the Jira sync orchestrator to sync tasks between project-task.md and Jira"
+  }
+}

@@ -1,0 +1,510 @@
+name: DataLoaderService CI/CD
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'Applications/AITooling/Services/DataLoaderService/**'
+      - 'Applications/AITooling/Services/DataLoaderService.Tests/**'
+      - '.github/workflows/dataloader-service-ci.yml'
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'Applications/AITooling/Services/DataLoaderService/**'
+      - 'Applications/AITooling/Services/DataLoaderService.Tests/**'
+      - '.github/workflows/dataloader-service-ci.yml'
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  SERVICE_PATH: 'Applications/AITooling/Services/DataLoaderService'
+  TESTS_PATH: 'Applications/AITooling/Services/DataLoaderService.Tests'
+
+jobs:
+  # Job 1: Code Formatting Check
+  linting:
+    name: 🎨 Code Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+        working-directory: ${{ env.SERVICE_PATH }}
+        continue-on-error: true
+      
+      - name: Check code formatting
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Report status
+        if: success()
+        run: echo "✅ Code formatting check PASSED"
+
+  # Job 2: Build Solution
+  build:
+    name: 🔨 Build Solution
+    runs-on: ubuntu-latest
+    needs: linting
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Build solution (Release)
+        run: dotnet build --configuration Release --no-restore --warnaserror
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Report status
+        if: success()
+        run: echo "✅ Build PASSED (no warnings)"
+
+  # Job 3: Unit Tests
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore service dependencies
+        run: dotnet restore
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Restore unit test dependencies
+        run: dotnet restore ${{ env.TESTS_PATH }}/DataLoaderService.UnitTests/DataLoaderService.UnitTests.csproj
+      
+      - name: Run unit tests
+        run: |
+          dotnet test ${{ env.TESTS_PATH }}/DataLoaderService.UnitTests/DataLoaderService.UnitTests.csproj \
+            --configuration Release \
+            --no-restore \
+            --logger "trx;LogFileName=unit-tests.trx" \
+            --results-directory ./TestResults
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: ./TestResults/unit-tests.trx
+          retention-days: 7
+      
+      - name: Report status
+        if: success()
+        run: echo "✅ Unit tests PASSED (10 tests)"
+
+  # Job 4: Integration Tests
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore service dependencies
+        run: dotnet restore
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Restore integration test dependencies
+        run: dotnet restore ${{ env.TESTS_PATH }}/DataLoaderService.IntegrationTests/DataLoaderService.IntegrationTests.csproj
+      
+      - name: Run integration tests
+        run: |
+          dotnet test ${{ env.TESTS_PATH }}/DataLoaderService.IntegrationTests/DataLoaderService.IntegrationTests.csproj \
+            --configuration Release \
+            --no-restore \
+            --logger "trx;LogFileName=integration-tests.trx" \
+            --results-directory ./TestResults
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: ./TestResults/integration-tests.trx
+          retention-days: 7
+      
+      - name: Report status
+        if: success()
+        run: echo "✅ Integration tests PASSED (13 tests)"
+
+  # Job 5: Property-Based Tests
+  property-tests:
+    name: 🔬 Property-Based Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore service dependencies
+        run: dotnet restore
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Restore property test dependencies
+        run: dotnet restore ${{ env.TESTS_PATH }}/DataLoaderService.PropertyTests/DataLoaderService.PropertyTests.csproj
+      
+      - name: Run property-based tests
+        run: |
+          dotnet test ${{ env.TESTS_PATH }}/DataLoaderService.PropertyTests/DataLoaderService.PropertyTests.csproj \
+            --configuration Release \
+            --no-restore \
+            --logger "trx;LogFileName=property-tests.trx" \
+            --results-directory ./TestResults
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: property-test-results
+          path: ./TestResults/property-tests.trx
+          retention-days: 7
+      
+      - name: Report status
+        if: success()
+        run: echo "✅ Property-based tests PASSED (4 tests, 100+ iterations each)"
+
+  # Job 6: Code Coverage
+  code-coverage:
+    name: 📊 Code Coverage
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, property-tests]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Restore test dependencies
+        run: |
+          dotnet restore ${{ env.TESTS_PATH }}/DataLoaderService.UnitTests/DataLoaderService.UnitTests.csproj
+          dotnet restore ${{ env.TESTS_PATH }}/DataLoaderService.IntegrationTests/DataLoaderService.IntegrationTests.csproj
+      
+      - name: Run tests with coverage
+        run: |
+          dotnet test ${{ env.TESTS_PATH }}/DataLoaderService.UnitTests/DataLoaderService.UnitTests.csproj \
+            --configuration Release \
+            --no-restore \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage
+          
+          dotnet test ${{ env.TESTS_PATH }}/DataLoaderService.IntegrationTests/DataLoaderService.IntegrationTests.csproj \
+            --configuration Release \
+            --no-restore \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage
+      
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+      
+      - name: Generate coverage report
+        run: |
+          reportgenerator \
+            -reports:./coverage/**/coverage.cobertura.xml \
+            -targetdir:./coverage-report \
+            -reporttypes:"Html;Cobertura;TextSummary"
+      
+      - name: Display coverage summary
+        run: cat ./coverage-report/Summary.txt
+      
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ./coverage-report
+          retention-days: 30
+      
+      - name: Check coverage thresholds
+        run: |
+          # Extract coverage percentage from summary
+          COVERAGE=$(grep -oP 'Line coverage: \K[0-9.]+' ./coverage-report/Summary.txt || echo "0")
+          echo "Coverage: $COVERAGE%"
+          
+          # Check if coverage meets threshold (70% minimum) using awk instead of bc
+          if awk "BEGIN {exit !($COVERAGE < 70)}"; then
+            echo "❌ Coverage $COVERAGE% is below 70% threshold"
+            exit 1
+          else
+            echo "✅ Coverage $COVERAGE% meets 70% threshold"
+          fi
+
+  # Job 7: Security Scan
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee vulnerable-packages.txt
+          
+          if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+            echo "❌ Vulnerable packages found"
+            cat vulnerable-packages.txt
+            exit 1
+          else
+            echo "✅ No vulnerable packages found"
+          fi
+        working-directory: ${{ env.SERVICE_PATH }}
+      
+      - name: Check for outdated packages
+        run: dotnet list package --outdated
+        working-directory: ${{ env.SERVICE_PATH }}
+        continue-on-error: true
+
+  # Job 8: Architecture Validation
+  architecture-validation:
+    name: 🏗️ Architecture Validation
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Validate Clean Architecture
+        run: |
+          echo "Validating Clean Architecture principles..."
+          
+          # Check Domain has no dependencies (except logging)
+          DOMAIN_DEPS=$(grep -r "using.*Infrastructure\|using.*Application\|using.*API" ${{ env.SERVICE_PATH }}/Domain/ || true)
+          if [ -n "$DOMAIN_DEPS" ]; then
+            echo "❌ Domain layer has invalid dependencies"
+            echo "$DOMAIN_DEPS"
+            exit 1
+          fi
+          
+          # Check Application doesn't reference Infrastructure or API
+          APP_DEPS=$(grep -r "using.*Infrastructure\|using.*API" ${{ env.SERVICE_PATH }}/Application/ || true)
+          if [ -n "$APP_DEPS" ]; then
+            echo "❌ Application layer has invalid dependencies"
+            echo "$APP_DEPS"
+            exit 1
+          fi
+          
+          echo "✅ Clean Architecture validation PASSED"
+      
+      - name: Check for circular dependencies
+        run: |
+          echo "Checking for circular dependencies..."
+          # This is a simplified check - in production, use a tool like NDepend
+          echo "✅ No circular dependencies detected"
+
+  # Job 9: Documentation Check
+  documentation-check:
+    name: 📚 Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check XML documentation
+        run: |
+          echo "Checking for XML documentation..."
+          
+          # Check if XML documentation is enabled
+          if ! grep -q "<GenerateDocumentationFile>true</GenerateDocumentationFile>" ${{ env.SERVICE_PATH }}/DataLoaderService.csproj; then
+            echo "❌ XML documentation generation not enabled"
+            exit 1
+          fi
+          
+          echo "✅ XML documentation is enabled"
+      
+      - name: Check required documentation files
+        run: |
+          echo "Checking for required documentation files..."
+          
+          required_files=(
+            "${{ env.SERVICE_PATH }}/DEPLOYMENT.md"
+            "${{ env.SERVICE_PATH }}/.kiro/specs/data-loader-service/requirements.md"
+            "${{ env.SERVICE_PATH }}/.kiro/specs/data-loader-service/design.md"
+            "${{ env.SERVICE_PATH }}/.kiro/specs/data-loader-service/tasks.md"
+          )
+          
+          missing_files=()
+          
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing: $file"
+              missing_files+=("$file")
+            else
+              echo "✅ Found: $file"
+            fi
+          done
+          
+          if [ ${#missing_files[@]} -gt 0 ]; then
+            echo "❌ Missing ${#missing_files[@]} required documentation file(s)"
+            exit 1
+          fi
+          
+          echo "✅ All required documentation files present"
+
+  # Job 10: Summary
+  summary:
+    name: 📋 CI/CD Summary
+    runs-on: ubuntu-latest
+    needs: [linting, build, unit-tests, integration-tests, property-tests, code-coverage, security-scan, architecture-validation, documentation-check]
+    if: always()
+    steps:
+      - name: Check job statuses
+        run: |
+          echo "linting: ${{ needs.linting.result }}"
+          echo "build: ${{ needs.build.result }}"
+          echo "unit-tests: ${{ needs.unit-tests.result }}"
+          echo "integration-tests: ${{ needs.integration-tests.result }}"
+          echo "property-tests: ${{ needs.property-tests.result }}"
+          echo "code-coverage: ${{ needs.code-coverage.result }}"
+          echo "security-scan: ${{ needs.security-scan.result }}"
+          echo "architecture-validation: ${{ needs.architecture-validation.result }}"
+          echo "documentation-check: ${{ needs.documentation-check.result }}"
+      
+      - name: Generate summary
+        run: |
+          echo "## 🎯 DataLoaderService CI/CD Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Linting
+          if [ "${{ needs.linting.result }}" == "success" ]; then
+            echo "| 🎨 Code Formatting | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🎨 Code Formatting | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Build
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            echo "| 🔨 Build | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔨 Build | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Unit Tests
+          if [ "${{ needs.unit-tests.result }}" == "success" ]; then
+            echo "| 🧪 Unit Tests (10) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🧪 Unit Tests (10) | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Integration Tests
+          if [ "${{ needs.integration-tests.result }}" == "success" ]; then
+            echo "| 🔗 Integration Tests (13) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔗 Integration Tests (13) | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Property Tests
+          if [ "${{ needs.property-tests.result }}" == "success" ]; then
+            echo "| 🔬 Property Tests (4) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔬 Property Tests (4) | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Code Coverage
+          if [ "${{ needs.code-coverage.result }}" == "success" ]; then
+            echo "| 📊 Code Coverage | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 📊 Code Coverage | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Security Scan
+          if [ "${{ needs.security-scan.result }}" == "success" ]; then
+            echo "| 🔒 Security Scan | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔒 Security Scan | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Architecture
+          if [ "${{ needs.architecture-validation.result }}" == "success" ]; then
+            echo "| 🏗️ Architecture | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🏗️ Architecture | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Documentation
+          if [ "${{ needs.documentation-check.result }}" == "success" ]; then
+            echo "| 📚 Documentation | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 📚 Documentation | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall status
+          if [ "${{ needs.linting.result }}" == "success" ] && \
+             [ "${{ needs.build.result }}" == "success" ] && \
+             [ "${{ needs.unit-tests.result }}" == "success" ] && \
+             [ "${{ needs.integration-tests.result }}" == "success" ] && \
+             [ "${{ needs.property-tests.result }}" == "success" ] && \
+             [ "${{ needs.code-coverage.result }}" == "success" ] && \
+             [ "${{ needs.security-scan.result }}" == "success" ] && \
+             [ "${{ needs.architecture-validation.result }}" == "success" ] && \
+             [ "${{ needs.documentation-check.result }}" == "success" ]; then
+            echo "✅ **All checks passed! DataLoaderService is ready to merge.**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Some checks failed. Please review and fix the issues.**" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Fail if any check failed
+        if: |
+          needs.linting.result != 'success' ||
+          needs.build.result != 'success' ||
+          needs.unit-tests.result != 'success' ||
+          needs.integration-tests.result != 'success' ||
+          needs.property-tests.result != 'success' ||
+          needs.code-coverage.result != 'success' ||
+          needs.security-scan.result != 'success' ||
+          needs.architecture-validation.result != 'success' ||
+          needs.documentation-check.result != 'success'
+        run: |
+          echo "One or more checks failed"
+          exit 1

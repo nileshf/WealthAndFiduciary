@@ -1,0 +1,71 @@
+name: Sync Project Tasks to Jira
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'Applications/AITooling/Services/*/project-task.md'
+  schedule:
+    - cron: '0 * * * *'  # Every hour
+
+jobs:
+  sync-security-service:
+    runs-on: ubuntu-latest
+    name: Sync SecurityService to Jira
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Setup PowerShell
+        shell: pwsh
+        run: |
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+
+      - name: Run Jira sync for SecurityService
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: SecurityService
+          TASK_FILE: Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md
+          JIRA_PROJECT_KEY: WEALTHFID
+        run: |
+          & ./scripts/jira-sync-step1-pull-missing-tasks.ps1
+          & ./scripts/jira-sync-step2-push-new-tasks.ps1
+          & ./scripts/jira-sync-step3-markdown-to-jira.ps1
+          & ./scripts/jira-sync-step4-jira-to-markdown.ps1
+
+  sync-data-loader-service:
+    runs-on: ubuntu-latest
+    name: Sync DataLoaderService to Jira
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Setup PowerShell
+        shell: pwsh
+        run: |
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+
+      - name: Run Jira sync for DataLoaderService
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: DataLoaderService
+          TASK_FILE: Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md
+          JIRA_PROJECT_KEY: WEALTHFID
+        run: |
+          & ./scripts/jira-sync-step1-pull-missing-tasks.ps1
+          & ./scripts/jira-sync-step2-push-new-tasks.ps1
+          & ./scripts/jira-sync-step3-markdown-to-jira.ps1
+          & ./scripts/jira-sync-step4-jira-to-markdown.ps1

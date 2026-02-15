@@ -1,0 +1,121 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        echo "Image tag: ${{ needs.build.outputs.image-tag }}"
+        # Deployment commands would go here
+        # For now, this is a placeholder
+    
+    - name: Run smoke tests on staging
+      run: |
+        echo "Running smoke tests on staging..."
+        # Smoke test commands would go here
+
+  approval:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production-approval
+    
+    steps:
+    - name: Wait for approval
+      run: |
+        echo "Waiting for manual approval to deploy to production..."
+
+  deploy-production:
+    needs: approval
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        echo "Image tag: ${{ needs.build.outputs.image-tag }}"
+        # Deployment commands would go here
+        # For now, this is a placeholder
+    
+    - name: Run smoke tests on production
+      run: |
+        echo "Running smoke tests on production..."
+        # Smoke test commands would go here
+
+  post-deployment:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Log deployment status
+      run: |
+        echo "Deployment Status: ${{ job.status }}"
+        echo "Repository: ${{ github.repository }}"
+        echo "Branch: main"
+        echo "Commit: ${{ github.sha }}"
+        echo "Author: ${{ github.actor }}"

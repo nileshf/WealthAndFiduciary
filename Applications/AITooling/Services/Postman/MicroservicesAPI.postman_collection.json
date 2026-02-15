@@ -1,0 +1,129 @@
+{
+  "info": {
+    "name": "Microservices API Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "securityServiceUrl",
+      "value": "http://localhost:5001"
+    },
+    {
+      "key": "dataLoaderServiceUrl",
+      "value": "http://localhost:5002"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Security Service",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"role\": \"Admin\"\n}"
+            },
+            "url": {
+              "raw": "{{securityServiceUrl}}/api/auth/register",
+              "host": ["{{securityServiceUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"token\", jsonData.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{securityServiceUrl}}/api/auth/login",
+              "host": ["{{securityServiceUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Data Loader Service",
+      "item": [
+        {
+          "name": "Upload CSV File",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "sample-data.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dataLoaderServiceUrl}}/api/data/upload",
+              "host": ["{{dataLoaderServiceUrl}}"],
+              "path": ["api", "data", "upload"]
+            }
+          }
+        },
+        {
+          "name": "Get All Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{dataLoaderServiceUrl}}/api/data",
+              "host": ["{{dataLoaderServiceUrl}}"],
+              "path": ["api", "data"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+    "name": "Jira Sync on File Deleted",
+    "version": "1.0.0",
+    "description": "Handles Jira sync when spec files are deleted",
+    "when": {
+        "type": "fileDeleted",
+        "patterns": [
+            "**/.kiro/specs/**/*.md"
+        ]
+    },
+    "then": {
+        "type": "runCommand",
+        "command": "powershell -ExecutionPolicy Bypass -File \"Applications/AITooling/Services/SecurityService/.kiro/scripts/jira-sync.ps1\" -Mode SyncFromFileDeleted",
+        "timeout": 60
+    }
+}

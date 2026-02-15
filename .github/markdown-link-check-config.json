@@ -1,0 +1,35 @@
+{
+    "ignorePatterns": [
+        {
+            "pattern": "^http://"
+        },
+        {
+            "pattern": "^https://github.com/your-org"
+        },
+        {
+            "pattern": "^https://jira.example.com"
+        },
+        {
+            "pattern": "^https://docs.microsoft.com"
+        },
+        {
+            "pattern": "^https://docs.github.com"
+        },
+        {
+            "pattern": "^https://developer.atlassian.com"
+        },
+        {
+            "pattern": "^https://example.com"
+        }
+    ],
+    "timeout": "5s",
+    "retryOn429": false,
+    "aliveStatusCodes": [
+        200,
+        206,
+        301,
+        302,
+        307,
+        308
+    ]
+}

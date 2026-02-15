@@ -1,0 +1,105 @@
+name: Jira Sync - Orchestrator
+
+on:
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: 'Service to sync (leave empty for all)'
+        required: false
+        type: string
+
+jobs:
+  sync-security-service:
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'SecurityService'
+    runs-on: ubuntu-latest
+    name: Sync SecurityService to Jira
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Run Jira sync for SecurityService
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: SecurityService
+          TASK_FILE: Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md
+          JIRA_PROJECT_KEY: WEALTHFID
+        run: |
+          & ./scripts/jira-sync-step4-jira-to-markdown.ps1
+
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git add Applications/AITooling/Services/SecurityService/.kiro/specs/security-service/project-task.md
+          git commit -m "chore: sync Jira issues for SecurityService"
+          git push
+
+  sync-data-loader-service:
+    if: github.event.inputs.service_name == '' || github.event.inputs.service_name == 'DataLoaderService'
+    runs-on: ubuntu-latest
+    name: Sync DataLoaderService to Jira
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Run Jira sync for DataLoaderService
+        shell: pwsh
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          SERVICE_NAME: DataLoaderService
+          TASK_FILE: Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md
+          JIRA_PROJECT_KEY: WEALTHFID
+        run: |
+          & ./scripts/jira-sync-step4-jira-to-markdown.ps1
+
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git add Applications/AITooling/Services/DataLoaderService/.kiro/specs/data-loader-service/project-task.md
+          git commit -m "chore: sync Jira issues for DataLoaderService"
+          git push
+
+  notify-completion:
+    needs: [sync-security-service, sync-data-loader-service]
+    if: always()
+    runs-on: ubuntu-latest
+    name: Notify Sync Completion
+
+    steps:
+      - name: Check job status
+        run: |
+          if [ "${{ needs.sync-security-service.result }}" == "failure" ] || [ "${{ needs.sync-data-loader-service.result }}" == "failure" ]; then
+            echo "❌ Jira sync completed with failures"
+            exit 1
+          else
+            echo "✅ Jira sync completed successfully"
+          fi
