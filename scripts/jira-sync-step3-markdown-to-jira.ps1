@@ -56,7 +56,7 @@ function Get-JiraHeaders {
 Write-Host "`nFetching Jira issues..." -ForegroundColor Cyan
 $headers = Get-JiraHeaders -Email $JiraEmail -Token $JiraToken
 $jql = 'project = WEALTHFID'
-$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status&expand=transitions"
+$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status,updated&expand=transitions"
 
 try {
     $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
@@ -73,6 +73,7 @@ $jiraStatusMap = @{}
 foreach ($issue in $jiraIssues) {
     $jiraStatusMap[$issue.key] = @{
         status      = $issue.fields.status.name
+        updated     = $issue.fields.updated
         transitions = $issue.transitions
     }
 }
@@ -111,6 +112,10 @@ $content = Get-Content $TaskFile -Raw
 $lines = $content -split "`n"
 $statusUpdates = 0
 
+# Get the last modified time of the markdown file
+$markdownLastModified = (Get-Item $TaskFile).LastWriteTime
+Write-Host "  Markdown file last modified: $markdownLastModified" -ForegroundColor Gray
+
 # Process each line
 foreach ($line in $lines) {
     if ($line -match '\[([x ~-])\]\s+([A-Z]+-\d+)\s*-\s*(.+)') {
@@ -123,6 +128,14 @@ foreach ($line in $lines) {
             $targetStatus = Get-StatusFromCheckbox $checkbox
             
             if ($jiraStatus -ne $targetStatus) {
+                # Check if Jira was updated more recently than markdown
+                # This prevents markdown from overwriting Jira changes
+                $jiraUpdated = $jiraStatusMap[$key].updated
+                if ($jiraUpdated -and (Get-Date $jiraUpdated) -gt $markdownLastModified) {
+                    Write-Host "  ⚠️  Skipping $key - Jira was updated more recently than markdown" -ForegroundColor Yellow
+                    continue
+                }
+                
                 # Find transition
                 $transitions = $jiraStatusMap[$key].transitions
                 $transitionId = Get-TransitionId $transitions $targetStatus

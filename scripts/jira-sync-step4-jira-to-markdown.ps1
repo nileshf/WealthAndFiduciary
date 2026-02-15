@@ -60,7 +60,7 @@ function Get-JiraHeaders {
 Write-Host "`nFetching Jira issues..." -ForegroundColor Cyan
 $headers = Get-JiraHeaders -Email $JiraEmail -Token $JiraToken
 $jql = 'project = WEALTHFID'
-$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status"
+$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status,updated"
 
 try {
     $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get

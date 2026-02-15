@@ -86,27 +86,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "Step 1 completed successfully" -ForegroundColor Green
 
-# Step 2
-Write-Host "`n[2] Step 2: Push New Tasks to Jira" -ForegroundColor Green
-& .\scripts\jira-sync-step2-push-new-tasks.ps1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Step 2 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-    exit $LASTEXITCODE
-}
-Write-Host "Step 2 completed successfully" -ForegroundColor Green
-
-# Step 3
-Write-Host "`n[3] Step 3: Sync Jira Status to Markdown" -ForegroundColor Green
-& .\scripts\jira-sync-step3-sync-jira-status.ps1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Step 3 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-    exit $LASTEXITCODE
-}
-Write-Host "Step 3 completed successfully" -ForegroundColor Green
-
-# Step 4
-Write-Host "`n[4] Step 4: Sync Markdown Status to Jira" -ForegroundColor Green
-& .\scripts\jira-sync-step4-sync-markdown-status.ps1
+# Step 4 - Sync Jira to markdown (Jira is source of truth, final say)
+Write-Host "`n[1] Step 4: Sync Jira Status to Markdown" -ForegroundColor Green
+& .\scripts\jira-sync-step4-jira-to-markdown.ps1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Step 4 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
     exit $LASTEXITCODE

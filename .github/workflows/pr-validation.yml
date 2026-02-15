@@ -32,19 +32,29 @@ jobs:
           ISSUE_KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oP '[A-Z]+-\d+' || echo "")
           echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
       
-      - name: Validate Jira issue exists
+      - name: Get Jira transitions
         if: steps.jira.outputs.issue_key != ''
+        id: transitions
         run: |
-          curl -f -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
-            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}"
+          TRANSITIONS=$(curl -s -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}/transitions?expand=transitions")
+          echo "$TRANSITIONS" > transitions.json
+          echo "transitions=$TRANSITIONS" >> $GITHUB_OUTPUT
+      
+      - name: Find In Review transition ID
+        if: steps.jira.outputs.issue_key != ''
+        id: find-transition
+        run: |
+          TRANSITION_ID=$(cat transitions.json | jq -r '.transitions[] | select(.to.name == "In Review") | .id')
+          echo "transition_id=$TRANSITION_ID" >> $GITHUB_OUTPUT
       
       - name: Transition Jira to "In Review"
-        if: steps.jira.outputs.issue_key != ''
+        if: steps.jira.outputs.issue_key != '' && steps.find-transition.outputs.transition_id != ''
         run: |
           curl -X POST \
             -H "Content-Type: application/json" \
             -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
-            -d '{"transition":{"id":"31"}}' \
+            -d "{\"transition\":{\"id\":\"${{ steps.find-transition.outputs.transition_id }}\"}}" \
             "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}/transitions"
       
       - name: Add Jira link to PR
