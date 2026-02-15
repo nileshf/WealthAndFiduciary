@@ -35,8 +35,8 @@ jobs:
         run: |
           & ./scripts/jira-sync-step1-pull-missing-tasks.ps1
           & ./scripts/jira-sync-step2-push-new-tasks.ps1
-          & ./scripts/jira-sync-step3-sync-jira-status.ps1
           & ./scripts/jira-sync-step4-sync-markdown-status.ps1
+          & ./scripts/jira-sync-step3-sync-jira-status.ps1
 
       - name: Commit changes
         shell: bash
@@ -76,8 +76,8 @@ jobs:
         run: |
           & ./scripts/jira-sync-step1-pull-missing-tasks.ps1
           & ./scripts/jira-sync-step2-push-new-tasks.ps1
-          & ./scripts/jira-sync-step3-sync-jira-status.ps1
           & ./scripts/jira-sync-step4-sync-markdown-status.ps1
+          & ./scripts/jira-sync-step3-sync-jira-status.ps1
 
       - name: Commit changes
         shell: bash

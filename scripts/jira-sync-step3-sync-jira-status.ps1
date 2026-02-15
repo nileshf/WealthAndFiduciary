@@ -1,10 +1,12 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Step 4: Sync status changes from project-task.md to Jira
+    Step 3: Sync status changes from project-task.md to Jira
 .DESCRIPTION
     If task status changes in project-task.md, update the status in Jira
-    to reflect the new status
+    to reflect the new status. This runs BEFORE Step 3 so that Jira
+    receives updates from markdown first, then markdown is updated from
+    Jira (Jira is the ultimate source of truth).
 #>
 
 param(
@@ -17,7 +19,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-Write-Host "=== Step 4: Sync Status Changes to Jira ===" -ForegroundColor Green
+Write-Host "=== Step 3: Sync Status Changes to Jira ===" -ForegroundColor Green
 Write-Host "Service: $ServiceName"
 Write-Host "Task File: $TaskFile"
 
@@ -154,5 +156,5 @@ if ($statusUpdates -eq 0) {
     exit 0
 }
 
-Write-Host "`nStep 4 completed successfully ($statusUpdates status update(s))" -ForegroundColor Green
+Write-Host "`nStep 3 completed successfully ($statusUpdates status update(s))" -ForegroundColor Green
 exit 0

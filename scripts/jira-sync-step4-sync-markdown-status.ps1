@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Step 3: Sync status changes from Jira to project-task.md
+    Step 4: Sync status changes from Jira to project-task.md
 .DESCRIPTION
     If task status changes in Jira, update the checkbox in project-task.md
     to reflect the new status
@@ -17,7 +17,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-Write-Host "=== Step 3: Sync Status Changes from Jira ===" -ForegroundColor Green
+Write-Host "=== Step 4: Sync Status Changes from Jira ===" -ForegroundColor Green
 Write-Host "Service: $ServiceName"
 Write-Host "Task File: $TaskFile"
 
@@ -147,5 +147,5 @@ if ($statusChanges -eq 0) {
 $updatedContent = $updatedLines -join "`n"
 Set-Content -Path $TaskFile -Value $updatedContent
 
-Write-Host "`nStep 3 completed successfully ($statusChanges status change(s))" -ForegroundColor Green
+Write-Host "`nStep 4 completed successfully ($statusChanges status change(s))" -ForegroundColor Green
 exit 0
