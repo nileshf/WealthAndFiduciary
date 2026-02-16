@@ -156,26 +156,9 @@ public class DataController : ControllerBase
             return NotFound(new { message = $"Data record with ID {id} not found" });
         }
 
-        // Simulate a null reference exception for testing
-        string? nullString = null;
-        var result = nullString!.Length;  // This will throw NullReferenceException at runtime
-
-        return Ok(data);
+        return Ok(data.Name);
     }
 
-    /// <summary>
-    /// Test method that triggers CS0161 - Not all code paths return a value
-    /// </summary>
-    /// <param name="id">The ID to test</param>
-    /// <returns>A string result</returns>
-    [HttpGet("test-cs0161/{id}")]
-    public IActionResult TestCS0161(int id)
-    {
-        if (id > 0)
-        {
-            return Ok("Valid ID");
-        }
-        // Missing return for id <= 0 case - this triggers CS0161
-    }
+
 
 }
