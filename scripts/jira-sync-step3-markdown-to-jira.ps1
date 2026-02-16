@@ -7,203 +7,185 @@
     to reflect the new status. This runs BEFORE Step 3 so that Jira
     receives updates from markdown first, then markdown is updated from
     Jira (Jira is the ultimate source of truth).
+    
+    Runs for all services by default, or a specific service if -ServiceName is provided
+.PARAMETER ServiceName
+    Optional: Run for specific service only (e.g., SecurityService, DataLoaderService)
+.EXAMPLE
+    .\scripts\jira-sync-step3-markdown-to-jira.ps1                    # Run for all services
+    .\scripts\jira-sync-step3-markdown-to-jira.ps1 -ServiceName "SecurityService"  # Run for one service
 #>
 
 param(
-    [string]$JiraBaseUrl = $env:JIRA_BASE_URL,
-    [string]$JiraEmail = $env:JIRA_USER_EMAIL,
-    [string]$JiraToken = $env:JIRA_API_TOKEN,
-    [string]$ServiceName = $env:SERVICE_NAME,
-    [string]$TaskFile = $env:TASK_FILE
+    [string]$ServiceName
 )
 
 $ErrorActionPreference = 'Continue'
 
-Write-Host "=== Step 3: Sync Status Changes to Jira ===" -ForegroundColor Green
-Write-Host "Service: $ServiceName"
-Write-Host "Task File: $TaskFile"
+Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "           Step 3: Sync Status Changes to Jira                 " -ForegroundColor Cyan
+Write-Host "================================================================`n" -ForegroundColor Cyan
 
-# Validation
-if (-not $JiraBaseUrl -or -not $JiraEmail -or -not $JiraToken) {
-    Write-Host "ERROR: Missing Jira credentials" -ForegroundColor Red
-    Write-Host "  JIRA_BASE_URL: $([bool]$JiraBaseUrl)" -ForegroundColor Yellow
-    Write-Host "  JIRA_USER_EMAIL: $([bool]$JiraEmail)" -ForegroundColor Yellow
-    Write-Host "  JIRA_API_TOKEN: $([bool]$JiraToken) (length: $($JiraToken.Length))" -ForegroundColor Yellow
-    exit 1
+# Discover all services
+$services = @()
+
+if ($ServiceName) {
+    # Run for specific service
+    $services = @($ServiceName)
 }
-
-if (-not (Test-Path $TaskFile)) {
-    Write-Host "ERROR: Task file not found: $TaskFile" -ForegroundColor Red
-    exit 1
-}
-
-# Helper: Get Jira Auth
-function Get-JiraAuth {
-    param([string]$Email, [string]$Token)
-    $pair = "$Email`:$Token"
-    $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
-    $base64 = [System.Convert]::ToBase64String($bytes)
-    Write-Host "  Auth string length: $($pair.Length)" -ForegroundColor Gray
-    Write-Host "  Base64 length: $($base64.Length)" -ForegroundColor Gray
-    return $base64
-}
-
-# Helper: Get Jira Headers
-function Get-JiraHeaders {
-    param([string]$Email, [string]$Token)
-    return @{
-        'Authorization' = "Basic $(Get-JiraAuth -Email $Email -Token $Token)"
-        'Content-Type'  = 'application/json'
-        'Accept'        = 'application/json'
-    }
-}
-
-# Fetch Jira issues
-Write-Host "`nFetching Jira issues..." -ForegroundColor Cyan
-$headers = Get-JiraHeaders -Email $JiraEmail -Token $JiraToken
-$jql = 'project = WEALTHFID'
-$uri = "$JiraBaseUrl/rest/api/3/search/jql?jql=$([System.Uri]::EscapeDataString($jql))&maxResults=100&fields=key,summary,status,updated&expand=transitions"
-
-try {
-    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
-    $jiraIssues = $response.issues
-    Write-Host "Found issues in Jira" -ForegroundColor Green
-}
-catch {
-    Write-Host "✗ Failed to fetch Jira issues" -ForegroundColor Red
-    Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Yellow
-    if ($_.Exception.Response) {
-        Write-Host "  Status Code: $($_.Exception.Response.StatusCode)" -ForegroundColor Yellow
-        Write-Host "  Status Description: $($_.Exception.Response.StatusDescription)" -ForegroundColor Yellow
-    }
-    if ($_.ErrorDetails) {
-        Write-Host "  Error Details: $($_.ErrorDetails.Message)" -ForegroundColor Yellow
-    }
-    exit 1
-}
-
-# Create status map
-$statusMap = @{}
-foreach ($issue in $jiraIssues) {
-    $jiraStatusMap[$issue.key] = @{
-        status      = $issue.fields.status.name
-        updated     = $issue.fields.updated
-        transitions = $issue.transitions
-    }
-}
-
-# Map checkbox to Jira status
-function Get-StatusFromCheckbox {
-    param([string]$checkbox)
+else {
+    # Discover all services
+    Write-Host "Discovering services..." -ForegroundColor Cyan
     
-    switch ($checkbox) {
-        ' ' { return 'To Do' }
-        '-' { return 'In Progress' }
-        '~' { return 'Testing' }
-        'x' { return 'Done' }
-        default { return 'To Do' }
-    }
-}
-
-# Get transition ID for target status
-function Get-TransitionId {
-    param(
-        [object]$transitions,
-        [string]$targetStatus
-    )
-    
-    foreach ($transition in $transitions) {
-        if ($transition.to.name -eq $targetStatus) {
-            return $transition.id
-        }
-    }
-    return $null
-}
-
-# Read tasks from markdown
-Write-Host "`nReading tasks from markdown..." -ForegroundColor Cyan
-$content = Get-Content $TaskFile -Raw
-$lines = $content -split "`n"
-$updatedLines = @()
-$statusChanges = 0
-
-# Map Jira status to checkbox
-function Get-CheckboxFromStatus {
-    param([string]$status)
-    
-    switch ($status.ToLower()) {
-        'to do' { return ' ' }
-        'in progress' { return '-' }
-        'in review' { return '-' }
-        'testing' { return '~' }
-        'ready to merge' { return '~' }
-        'done' { return 'x' }
-        default { return ' ' }
-    }
-}
-
-# Get the last modified time of the markdown file
-$markdownLastModified = (Get-Item $TaskFile).LastWriteTime
-Write-Host "  Markdown file last modified: $markdownLastModified" -ForegroundColor Gray
-
-# Process each line
-foreach ($line in $lines) {
-    if ($line -match '\[([x ~-])\]\s+([A-Z]+-\d+)\s*-\s*(.+)') {
-        $currentCheckbox = $matches[1]
-        $key = $matches[2]
-        $summary = $matches[3]
-        
-        if ($statusMap.ContainsKey($key)) {
-            $jiraStatus = $statusMap[$key]
-            $newCheckbox = Get-CheckboxFromStatus $jiraStatus
-            
-            if ($jiraStatus -ne $targetStatus) {
-                # Check if Jira was updated more recently than markdown
-                # This prevents markdown from overwriting Jira changes
-                $jiraUpdated = $jiraStatusMap[$key].updated
-                if ($jiraUpdated -and (Get-Date $jiraUpdated) -gt $markdownLastModified) {
-                    Write-Host "  ⚠️  Skipping $key - Jira was updated more recently than markdown" -ForegroundColor Yellow
-                    continue
-                }
-                
-                # Find transition
-                $transitions = $jiraStatusMap[$key].transitions
-                $transitionId = Get-TransitionId $transitions $targetStatus
-                
-                if ($transitionId) {
-                    # Update Jira status
-                    $transitionUri = "$JiraBaseUrl/rest/api/3/issue/$key/transitions"
-                    $transitionBody = @{
-                        transition = @{ id = $transitionId }
-                    } | ConvertTo-Json
-
-                    try {
-                        Invoke-RestMethod -Uri $transitionUri -Headers $headers -Method Post -Body $transitionBody | Out-Null
-                        Write-Host "  Updated: $key to [$checkbox] ($targetStatus)" -ForegroundColor Yellow
-                        $statusUpdates++
-                    }
-                    catch {
-                        Write-Host "  Failed to update $key" -ForegroundColor Red
-                    }
-                }
-                else {
-                    Write-Host "  No transition available for $key to $targetStatus" -ForegroundColor Yellow
-                }
+    # AITooling services
+    $aiToolingPath = "Applications/AITooling/Services"
+    if (Test-Path $aiToolingPath) {
+        Get-ChildItem -Path $aiToolingPath -Directory | ForEach-Object {
+            if (Test-Path "$($_.FullName)/.env") {
+                $services += $_.Name
+                Write-Host "  Found: $($_.Name)" -ForegroundColor Green
             }
         }
-        else {
-            $updatedLines += $line
+    }
+    
+    # FullView services
+    $fullViewPath = "Applications/FullView/Services"
+    if (Test-Path $fullViewPath) {
+        Get-ChildItem -Path $fullViewPath -Directory | ForEach-Object {
+            if (Test-Path "$($_.FullName)/.env") {
+                $services += $_.Name
+                Write-Host "  Found: $($_.Name)" -ForegroundColor Green
+            }
         }
     }
-    else {
-        $updatedLines += $line
+}
+
+if ($services.Count -eq 0) {
+    Write-Host "ERROR: No services found" -ForegroundColor Red
+    $global:Step3Result = 1
+    exit 1
+}
+
+Write-Host "`nServices to process: $($services.Count)" -ForegroundColor Yellow
+$services | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+Write-Host ""
+
+# Process each service
+$totalServices = $services.Count
+$successCount = 0
+$failureCount = 0
+$serviceIndex = 0
+
+foreach ($service in $services) {
+    $serviceIndex++
+    Write-Host "`n================================================================" -ForegroundColor Cyan
+    Write-Host "[$serviceIndex/$totalServices] Processing Service: $service" -ForegroundColor Yellow
+    Write-Host "================================================================" -ForegroundColor Cyan
+    
+    # Find service .env file
+    $envFile = $null
+    $possiblePaths = @(
+        "Applications/AITooling/Services/$service/.env",
+        "Applications/FullView/Services/$service/.env"
+    )
+    
+    $pathFound = $false
+    foreach ($path in $possiblePaths) {
+        if (Test-Path $path) {
+            $envFile = $path
+            $pathFound = $true
+            break
+        }
     }
+    
+    if (-not $pathFound) {
+        Write-Host "ERROR: .env file not found for service: $service" -ForegroundColor Red
+        $failureCount++
+        continue
+    }
+    
+    Write-Host "Loading configuration from: $envFile" -ForegroundColor Cyan
+    
+    # Load environment variables from .env file
+    $envLines = Get-Content $envFile
+    $envVarsLoaded = @{}
+    
+    foreach ($line in $envLines) {
+        if ($line.StartsWith('#') -or [string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+        
+        $parts = $line.Split('=', 2)
+        if ($parts.Count -eq 2) {
+            $key = $parts[0].Trim()
+            $value = $parts[1].Trim()
+            
+            [Environment]::SetEnvironmentVariable($key, $value, [System.EnvironmentVariableTarget]::Process)
+            $envVarsLoaded[$key] = $value
+        }
+    }
+    
+    Write-Host "Environment variables loaded: $($envVarsLoaded.Count)" -ForegroundColor Green
+    
+    # Display loaded environment variables
+    Write-Host "`nLoaded Environment Variables:" -ForegroundColor Cyan
+    Write-Host "-----------------------------" -ForegroundColor Cyan
+    foreach ($kvp in $envVarsLoaded.GetEnumerator()) {
+        $key = $kvp.Key
+        $value = $kvp.Value
+        
+        # Mask sensitive values
+        if ($key -match 'PASSWORD|SECRET|TOKEN|KEY|CREDENTIAL') {
+            $maskedValue = if ($value.Length -gt 4) { "*" * ($value.Length - 4) + $value.Substring($value.Length - 4) } else { "****" }
+            Write-Host "  $key=$maskedValue" -ForegroundColor Yellow
+        }
+        else {
+            Write-Host "  $key=$value" -ForegroundColor Yellow
+        }
+    }
+    Write-Host "-----------------------------" -ForegroundColor Cyan
+    
+    # Get service name from environment
+    $serviceName = $env:SERVICE_NAME
+    if (-not $serviceName) {
+        Write-Host "ERROR: SERVICE_NAME not set in $envFile" -ForegroundColor Red
+        $failureCount++
+        continue
+    }
+    
+    Write-Host "`nService: $serviceName" -ForegroundColor Yellow
+    Write-Host "----------------------------------------------------------------" -ForegroundColor Cyan
+    
+    # Call the actual step logic
+    $global:Step3Result = $null
+    $result = & .\scripts\jira-sync-step3-logic.ps1
+    if ($result -ne 0) {
+        Write-Host "Step 3 failed with exit code: $result" -ForegroundColor Red
+        $failureCount++
+        continue
+    }
+    Write-Host "Step 3 completed successfully" -ForegroundColor Green
+    
+    $successCount++
+    Write-Host "`nService $service completed successfully" -ForegroundColor Green
 }
 
-if ($statusChanges -eq 0) {
-    Write-Host "No status changes detected" -ForegroundColor Green
-    exit 0
-}
+# Summary
+Write-Host "`n==============================================================" -ForegroundColor Cyan
+Write-Host "                    SUMMARY                                    " -ForegroundColor Cyan
+Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "Total Services: $totalServices" -ForegroundColor Gray
+Write-Host "Successful: $successCount" -ForegroundColor Green
+Write-Host "Failed: $failureCount" -ForegroundColor $(if ($failureCount -eq 0) { "Green" } else { "Red" })
+Write-Host "==============================================================" -ForegroundColor Cyan
 
-Write-Host "`nStep 3 completed successfully ($statusUpdates status update(s))" -ForegroundColor Green
-exit 0
+if ($failureCount -eq 0) {
+    Write-Host "All Steps Completed Successfully!" -ForegroundColor Green
+    $global:Step3Result = 0
+    return 0
+}
+else {
+    Write-Host "Some services failed" -ForegroundColor Red
+    $global:Step3Result = 1
+    return 1
+}

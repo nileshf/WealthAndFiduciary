@@ -1,102 +1,110 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Run all Jira sync steps in sequence
+    Run all Jira sync steps for all services
 .DESCRIPTION
-    Runs all 4 sync steps with environment variables loaded from .env
+    Runs all 4 sync steps for each service.
+    Each step script handles its own service discovery and .env loading.
+.PARAMETER ServiceName
+    Optional: Run for specific service only (e.g., SecurityService, DataLoaderService)
+.EXAMPLE
+    .\scripts\run-all-steps.ps1                    # Run for all services
+    .\scripts\run-all-steps.ps1 -ServiceName "SecurityService"  # Run for one service
 #>
 
 param(
-    [string]$EnvFile = ".env"
+    [string]$ServiceName
 )
 
 $ErrorActionPreference = 'Continue'
 
 Write-Host "==============================================================" -ForegroundColor Cyan
-Write-Host "           Jira Sync - Run All Steps in Sequence                " -ForegroundColor Cyan
-Write-Host "================================================================`n" -ForegroundColor Cyan
+Write-Host "           Jira Sync - Run All Steps for All Services           " -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host ""
 
-# Load environment variables from .env file
-if (Test-Path $EnvFile) {
-    Write-Host "Loading configuration from: $EnvFile" -ForegroundColor Cyan
-    
-    $envLines = Get-Content $EnvFile
-    foreach ($line in $envLines) {
-        if ($line.StartsWith('#') -or [string]::IsNullOrWhiteSpace($line)) {
-            continue
-        }
-        
-        $parts = $line.Split('=', 2)
-        if ($parts.Count -eq 2) {
-            $key = $parts[0].Trim()
-            $value = $parts[1].Trim()
-            
-            [Environment]::SetEnvironmentVariable($key, $value, [System.EnvironmentVariableTarget]::Process)
-        }
-    }
-    
-    Write-Host "Environment variables loaded" -ForegroundColor Green
-    
-    # Display loaded environment variables
-    Write-Host "`nLoaded Environment Variables:" -ForegroundColor Cyan
-    Write-Host "-----------------------------" -ForegroundColor Cyan
-    foreach ($line in $envLines) {
-        if ($line.StartsWith('#') -or [string]::IsNullOrWhiteSpace($line)) {
-            continue
-        }
-        
-        $parts = $line.Split('=', 2)
-        if ($parts.Count -eq 2) {
-            $key = $parts[0].Trim()
-            $value = $parts[1].Trim()
-            
-            # Mask sensitive values
-            if ($key -match 'PASSWORD|SECRET|TOKEN|KEY|CREDENTIAL') {
-                $maskedValue = if ($value.Length -gt 4) { "*" * ($value.Length - 4) + $value.Substring($value.Length - 4) } else { "****" }
-                Write-Host "  $key=$maskedValue" -ForegroundColor Yellow
-            }
-            else {
-                Write-Host "  $key=$value" -ForegroundColor Yellow
-            }
-        }
-    }
-    Write-Host "-----------------------------" -ForegroundColor Cyan
+if ($ServiceName) {
+    Write-Host "Running for specific service: $ServiceName" -ForegroundColor Yellow
 }
 else {
-    Write-Host "ERROR: .env file not found: $EnvFile" -ForegroundColor Red
-    exit 1
+    Write-Host "Running for all services" -ForegroundColor Yellow
 }
+Write-Host ""
 
-# Get service name from environment
-$serviceName = $env:SERVICE_NAME
-if (-not $serviceName) {
-    Write-Host "ERROR: SERVICE_NAME not set" -ForegroundColor Red
+# Step 1 - Pull missing tasks from Jira
+Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "                    STEP 1                                     " -ForegroundColor Cyan
+Write-Host "==============================================================" -ForegroundColor Cyan
+$global:Step1Result = $null
+& .\scripts\jira-sync-step1-pull-missing-tasks.ps1 -ServiceName $ServiceName
+if ($global:Step1Result -ne 0) {
+    Write-Host "Step 1 failed with exit code: $($global:Step1Result)" -ForegroundColor Red
     exit 1
-}
-
-Write-Host "`nService: $serviceName" -ForegroundColor Yellow
-Write-Host "----------------------------------------------------------------" -ForegroundColor Cyan
-
-# Step 1
-Write-Host "`n[1] Step 1: Pull Missing Tasks from Jira" -ForegroundColor Green
-& .\scripts\jira-sync-step1-pull-missing-tasks.ps1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Step 1 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-    exit $LASTEXITCODE
 }
 Write-Host "Step 1 completed successfully" -ForegroundColor Green
 
-# Step 4 - Sync Jira to markdown (Jira is source of truth, final say)
-Write-Host "`n[1] Step 4: Sync Jira Status to Markdown" -ForegroundColor Green
-& .\scripts\jira-sync-step4-jira-to-markdown.ps1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Step 4 failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-    exit $LASTEXITCODE
+# Clear environment variables before next step
+[Environment]::SetEnvironmentVariable('JIRA_BASE_URL', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_USER_EMAIL', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_API_TOKEN', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('SERVICE_NAME', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('TASK_FILE', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_PROJECT_KEY', $null, [System.EnvironmentVariableTarget]::Process)
+
+# Step 2 - Push new tasks to Jira
+Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "                    STEP 2                                     " -ForegroundColor Cyan
+Write-Host "==============================================================" -ForegroundColor Cyan
+$global:Step2Result = $null
+& .\scripts\jira-sync-step2-push-new-tasks.ps1 -ServiceName $ServiceName
+if ($global:Step2Result -ne 0) {
+    Write-Host "Step 2 failed with exit code: $($global:Step2Result)" -ForegroundColor Red
+    exit 1
+}
+Write-Host "Step 2 completed successfully" -ForegroundColor Green
+
+# Clear environment variables before next step
+[Environment]::SetEnvironmentVariable('JIRA_BASE_URL', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_USER_EMAIL', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_API_TOKEN', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('SERVICE_NAME', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('TASK_FILE', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_PROJECT_KEY', $null, [System.EnvironmentVariableTarget]::Process)
+
+# Step 3 - Sync markdown status to Jira
+Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "                    STEP 3                                     " -ForegroundColor Cyan
+Write-Host "==============================================================" -ForegroundColor Cyan
+$global:Step3Result = $null
+& .\scripts\jira-sync-step3-markdown-to-jira.ps1 -ServiceName $ServiceName
+if ($global:Step3Result -ne 0) {
+    Write-Host "Step 3 failed with exit code: $($global:Step3Result)" -ForegroundColor Red
+    exit 1
+}
+Write-Host "Step 3 completed successfully" -ForegroundColor Green
+
+# Clear environment variables before next step
+[Environment]::SetEnvironmentVariable('JIRA_BASE_URL', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_USER_EMAIL', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_API_TOKEN', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('SERVICE_NAME', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('TASK_FILE', $null, [System.EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('JIRA_PROJECT_KEY', $null, [System.EnvironmentVariableTarget]::Process)
+
+# Step 4 - Sync Jira status to markdown (Jira is source of truth, final say)
+Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "                    STEP 4                                     " -ForegroundColor Cyan
+Write-Host "==============================================================" -ForegroundColor Cyan
+$global:Step4Result = $null
+& .\scripts\jira-sync-step4-jira-to-markdown.ps1 -ServiceName $ServiceName
+if ($global:Step4Result -ne 0) {
+    Write-Host "Step 4 failed with exit code: $($global:Step4Result)" -ForegroundColor Red
+    exit 1
 }
 Write-Host "Step 4 completed successfully" -ForegroundColor Green
 
-Write-Host "`n==============================================================" -ForegroundColor Green
-Write-Host "              All Steps Completed Successfully!                 " -ForegroundColor Green
-Write-Host "================================================================" -ForegroundColor Green
-
+Write-Host ""
+Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "All Steps Completed Successfully!" -ForegroundColor Green
+Write-Host "==============================================================" -ForegroundColor Cyan
 exit 0

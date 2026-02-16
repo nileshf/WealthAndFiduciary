@@ -1,9 +1,13 @@
 # SecurityService Project Tasks
 
 ## Implementation Tasks
-- [ ] Add monitoring and alerting
-- [ ] Implement health check endpoints
-- [ ] Set up PostgreSQL database
-- [ ] Configure Docker container
-- [ ] Set up CI/CD pipeline
-- [ ] markup to jira Security
+- [ ] WEALTHFID-339 - Add monitoring and alerting
+- [ ] WEALTHFID-340 - Implement health check endpoints
+- [ ] WEALTHFID-341 - Set up PostgreSQL database
+- [ ] WEALTHFID-342 - Configure Docker container
+- [ ] WEALTHFID-343 - Set up CI/CD pipeline
+- [ ] WEALTHFID-344 - markup to jira Security
+- [ ] WEALTHFID-158 - Jira to markup Security
+
+
+
