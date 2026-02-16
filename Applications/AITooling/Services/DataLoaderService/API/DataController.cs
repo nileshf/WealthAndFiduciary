@@ -135,6 +135,7 @@ public class DataController : ControllerBase
                 new { message = "An error occurred while retrieving data" });
         }
     }
+
     /// <summary>
     /// Retrieves a specific data record by ID
     /// </summary>
@@ -161,4 +162,20 @@ public class DataController : ControllerBase
 
         return Ok(data);
     }
+
+    /// <summary>
+    /// Test method that triggers CS0161 - Not all code paths return a value
+    /// </summary>
+    /// <param name="id">The ID to test</param>
+    /// <returns>A string result</returns>
+    [HttpGet("test-cs0161/{id}")]
+    public IActionResult TestCS0161(int id)
+    {
+        if (id > 0)
+        {
+            return Ok("Valid ID");
+        }
+        // Missing return for id <= 0 case - this triggers CS0161
+    }
+
 }
