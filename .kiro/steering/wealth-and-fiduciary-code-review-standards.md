@@ -392,9 +392,9 @@ Escalate to tech lead when:
 
 ## 📚 RESOURCES
 
-- **Coding Standards**: `.kiro/steering/org-coding-standards.md`
-- **Architecture Guide**: `.kiro/steering/org-architecture.md`
-- **Testing Standards**: `.kiro/steering/org-testing-standards.md`
+- **Coding Standards**: `.kiro/steering/wealth-and-fiduciary-coding-standards.md`
+- **Architecture Guide**: `.kiro/steering/wealth-and-fiduciary-architecture.md`
+- **Testing Standards**: `.kiro/steering/wealth-and-fiduciary-testing-standards.md`
 - **Service-Specific Rules**: `[Service]/.kiro/steering/`
 
 ---

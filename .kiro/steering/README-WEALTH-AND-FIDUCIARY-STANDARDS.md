@@ -15,7 +15,7 @@ This folder contains business-unit-wide standards that apply to **ALL** WealthAn
 
 ```
 .kiro/steering/
-├── org-*.md files (Business Unit standards)
+├── wealth-and-fiduciary-*.md files (Business Unit standards)
 ├── CODE-REVIEW-DIAGRAM.md
 ├── FOUR-LEVEL-STRUCTURE.md
 ├── DOCUMENTATION-REFERENCE.md
@@ -77,11 +77,11 @@ When working on **{service}**:
    - app-security-standards.md (JWT, RBAC)
    - app-integration-patterns.md
 
-3. **BusinessUnit-Level** (THIS LEVEL): `WealthAndFiduciary/.kiro/steering/org-*.md`
-   - org-architecture.md (Clean Architecture, SOLID)
-   - org-coding-standards.md
-   - org-testing-standards.md
-   - org-code-review-standards.md
+3. **BusinessUnit-Level** (THIS LEVEL): `WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-*.md`
+   - wealth-and-fiduciary-architecture.md (Clean Architecture, SOLID)
+   - wealth-and-fiduciary-coding-standards.md
+   - wealth-and-fiduciary-testing-standards.md
+   - wealth-and-fiduciary-code-review-standards.md
 
 4. **Implementation**: `.github/workflows/*.yml`
 
@@ -94,10 +94,10 @@ Create a symbolic link from application `.kiro/steering/` to `WealthAndFiduciary
 ```powershell
 # Windows (run as Administrator)
 cd .kiro/steering
-New-Item -ItemType SymbolicLink -Name "org-architecture.md" -Target "../../WealthAndFiduciary/.kiro/steering/org-architecture.md"
-New-Item -ItemType SymbolicLink -Name "org-coding-standards.md" -Target "../../WealthAndFiduciary/.kiro/steering/org-coding-standards.md"
-New-Item -ItemType SymbolicLink -Name "org-testing-standards.md" -Target "../../WealthAndFiduciary/.kiro/steering/org-testing-standards.md"
-New-Item -ItemType SymbolicLink -Name "org-code-review-standards.md" -Target "../../WealthAndFiduciary/.kiro/steering/org-code-review-standards.md"
+New-Item -ItemType SymbolicLink -Name "wealth-and-fiduciary-architecture.md" -Target "../../WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-architecture.md"
+New-Item -ItemType SymbolicLink -Name "wealth-and-fiduciary-coding-standards.md" -Target "../../WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-coding-standards.md"
+New-Item -ItemType SymbolicLink -Name "wealth-and-fiduciary-testing-standards.md" -Target "../../WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-testing-standards.md"
+New-Item -ItemType SymbolicLink -Name "wealth-and-fiduciary-code-review-standards.md" -Target "../../WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-code-review-standards.md"
 ```
 
 ### Option 2: Copy Files (Simpler)
@@ -105,7 +105,7 @@ New-Item -ItemType SymbolicLink -Name "org-code-review-standards.md" -Target "..
 Copy business unit standards to application `.kiro/steering/`:
 
 ```powershell
-Copy-Item "WealthAndFiduciary/.kiro/steering/org-*.md" ".kiro/steering/" -Force
+Copy-Item "WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-*.md" ".kiro/steering/" -Force
 ```
 
 **Note**: With this option, you need to manually sync when business unit standards change.
@@ -140,7 +140,7 @@ Update Business Unit standards when:
 1. **Edit files in `WealthAndFiduciary/.kiro/steering/`**
 2. **Sync to application repos** (if using Option 2):
    ```powershell
-   Copy-Item "WealthAndFiduciary/.kiro/steering/org-*.md" ".kiro/steering/" -Force
+   Copy-Item "WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-*.md" ".kiro/steering/" -Force
    ```
 3. **Communicate changes** to all teams
 4. **Update application/service standards** if they conflict
@@ -170,10 +170,10 @@ Update Business Unit standards when:
 ## 📚 Related Documentation
 
 ### Business Unit Level (This Level)
-- `WealthAndFiduciary/.kiro/steering/org-architecture.md`
-- `WealthAndFiduciary/.kiro/steering/org-coding-standards.md`
-- `WealthAndFiduciary/.kiro/steering/org-testing-standards.md`
-- `WealthAndFiduciary/.kiro/steering/org-code-review-standards.md`
+- `WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-architecture.md`
+- `WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-coding-standards.md`
+- `WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-testing-standards.md`
+- `WealthAndFiduciary/.kiro/steering/wealth-and-fiduciary-code-review-standards.md`
 - `WealthAndFiduciary/.kiro/steering/FOUR-LEVEL-STRUCTURE.md`
 - `WealthAndFiduciary/.kiro/steering/CODE-REVIEW-DIAGRAM.md`
 
@@ -191,10 +191,10 @@ Update Business Unit standards when:
 
 **"Where do I define...?"**
 
-- **Technology stack** (.NET version, frameworks): HERE (org-architecture.md)
-- **Coding conventions** (naming, documentation): HERE (org-coding-standards.md)
-- **Testing standards** (test pyramid, coverage): HERE (org-testing-standards.md)
-- **Code review process**: HERE (org-code-review-standards.md)
+- **Technology stack** (.NET version, frameworks): HERE (wealth-and-fiduciary-architecture.md)
+- **Coding conventions** (naming, documentation): HERE (wealth-and-fiduciary-coding-standards.md)
+- **Testing standards** (test pyramid, coverage): HERE (wealth-and-fiduciary-testing-standards.md)
+- **Code review process**: HERE (wealth-and-fiduciary-code-review-standards.md)
 - **Application patterns** (multi-tenant, JWT): Application level (app-*.md)
 - **Service-specific rules** (16 roles, Auth schema): Service level
 

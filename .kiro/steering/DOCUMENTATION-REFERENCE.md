@@ -9,10 +9,10 @@
 **Location**: `.kiro/steering/`
 
 These files guide Kiro's behavior when generating code and reviewing:
-- `org-architecture.md` - Architecture standards
-- `org-coding-standards.md` - Coding standards
-- `org-testing-standards.md` - Testing standards
-- `org-code-review-standards.md` - Code review standards
+- `wealth-and-fiduciary-architecture.md` - Architecture standards
+- `wealth-and-fiduciary-coding-standards.md` - Coding standards
+- `wealth-and-fiduciary-testing-standards.md` - Testing standards
+- `wealth-and-fiduciary-code-review-standards.md` - Code review standards
 - `CODE-REVIEW-DIAGRAM.md` - Code review system diagrams
 - `FOUR-LEVEL-STRUCTURE.md` - Four-level hierarchy guide
 - `README-WEALTH-AND-FIDUCIARY-STANDARDS.md` - Business unit overview
@@ -47,16 +47,16 @@ When users ask about:
 → Point them to: `docs/github-workflow/GITHUB-WORKFLOW-DIAGRAM.md`
 
 **"What are the coding standards?"**
-→ Use: `.kiro/steering/org-coding-standards.md` (apply these when generating code)
+→ Use: `.kiro/steering/wealth-and-fiduciary-coding-standards.md` (apply these when generating code)
 
 **"What are the architecture rules?"**
-→ Use: `.kiro/steering/org-architecture.md` (enforce these when generating code)
+→ Use: `.kiro/steering/wealth-and-fiduciary-architecture.md` (enforce these when generating code)
 
 **"What are the testing requirements?"**
-→ Use: `.kiro/steering/org-testing-standards.md` (apply these when generating tests)
+→ Use: `.kiro/steering/wealth-and-fiduciary-testing-standards.md` (apply these when generating tests)
 
 **"How do I review code?"**
-→ Point them to: `.kiro/steering/org-code-review-standards.md` AND `docs/github-workflow/GITHUB-WORKFLOW-GUIDE.md`
+→ Point them to: `.kiro/steering/wealth-and-fiduciary-code-review-standards.md` AND `docs/github-workflow/GITHUB-WORKFLOW-GUIDE.md`
 
 **"What are the FullView application standards?"**
 → Use: `.kiro/steering/Applications/FullView/app-architecture.md`
@@ -98,10 +98,10 @@ When users ask about:
 3. Visual: `docs/github-workflow/GITHUB-WORKFLOW-DIAGRAM.md`
 
 **For developers learning standards**:
-1. Architecture: `.kiro/steering/org-architecture.md`
-2. Coding: `.kiro/steering/org-coding-standards.md`
-3. Testing: `.kiro/steering/org-testing-standards.md`
-4. Review: `.kiro/steering/org-code-review-standards.md`
+1. Architecture: `.kiro/steering/wealth-and-fiduciary-architecture.md`
+2. Coding: `.kiro/steering/wealth-and-fiduciary-coding-standards.md`
+3. Testing: `.kiro/steering/wealth-and-fiduciary-testing-standards.md`
+4. Review: `.kiro/steering/wealth-and-fiduciary-code-review-standards.md`
 
 **For understanding the structure**:
 1. Four-level hierarchy: `.kiro/steering/FOUR-LEVEL-STRUCTURE.md`

@@ -24,7 +24,7 @@ WealthAndFiduciary (Business Unit)
 │                    Applies to ALL applications and services              │
 │                                                                           │
 │  Location: wealthandfiduciary-standards repo OR copied to each app repo  │
-│  Files: org-architecture.md, org-coding-standards.md, etc.              │
+│  Files: wealth-and-fiduciary-architecture.md, wealth-and-fiduciary-coding-standards.md, etc.              │
 │                                                                           │
 │  Defines:                                                                 │
 │  ├── .NET 9.0 for all services                                          │
@@ -146,10 +146,10 @@ Implementation / Kiro Defaults (LOWEST PRECEDENCE)
 
 ```
 .kiro/steering/
-├── org-architecture.md (Level 1: Business Unit)
-├── org-coding-standards.md (Level 1: Business Unit)
-├── org-testing-standards.md (Level 1: Business Unit)
-├── org-code-review-standards.md (Level 1: Business Unit)
+├── wealth-and-fiduciary-architecture.md (Level 1: Business Unit)
+├── wealth-and-fiduciary-coding-standards.md (Level 1: Business Unit)
+├── wealth-and-fiduciary-testing-standards.md (Level 1: Business Unit)
+├── wealth-and-fiduciary-code-review-standards.md (Level 1: Business Unit)
 ├── CODE-REVIEW-DIAGRAM.md
 ├── FOUR-LEVEL-STRUCTURE.md
 ├── DOCUMENTATION-REFERENCE.md
@@ -198,10 +198,10 @@ Implementation / Kiro Defaults (LOWEST PRECEDENCE)
 WealthAndFiduciary/ (workspace root)
 ├── .kiro/
 │   ├── steering/
-│   │   ├── org-architecture.md (Level 1: Business Unit)
-│   │   ├── org-coding-standards.md (Level 1: Business Unit)
-│   │   ├── org-testing-standards.md (Level 1: Business Unit)
-│   │   ├── org-code-review-standards.md (Level 1: Business Unit)
+│   │   ├── wealth-and-fiduciary-architecture.md (Level 1: Business Unit)
+│   │   ├── wealth-and-fiduciary-coding-standards.md (Level 1: Business Unit)
+│   │   ├── wealth-and-fiduciary-testing-standards.md (Level 1: Business Unit)
+│   │   ├── wealth-and-fiduciary-code-review-standards.md (Level 1: Business Unit)
 │   │   ├── CODE-REVIEW-DIAGRAM.md
 │   │   ├── FOUR-LEVEL-STRUCTURE.md
 │   │   ├── DOCUMENTATION-REFERENCE.md
@@ -265,7 +265,7 @@ Kiro loads steering files in this order:
 
 1. **Service-Level** (HIGHEST): `.kiro/steering/Applications/FullView/services/FullViewSecurity/*.md`
 2. **Application-Level**: `.kiro/steering/Applications/FullView/app-*.md`
-3. **Business Unit-Level**: `.kiro/steering/org-*.md`
+3. **Business Unit-Level**: `.kiro/steering/wealth-and-fiduciary-*.md`
 4. **Implementation**: `.github/workflows/*.yml`
 
 ### When Working on SecurityService
@@ -274,7 +274,7 @@ Kiro loads steering files in this order:
 
 1. **Service-Level** (HIGHEST): `.kiro/steering/Applications/AITooling/services/SecurityService/*.md`
 2. **Application-Level**: `.kiro/steering/Applications/AITooling/app-*.md`
-3. **Business Unit-Level**: `.kiro/steering/org-*.md`
+3. **Business Unit-Level**: `.kiro/steering/wealth-and-fiduciary-*.md`
 4. **Implementation**: `.github/workflows/*.yml`
 
 ## 📊 Standards Inheritance
@@ -358,8 +358,8 @@ Kiro loads steering files in this order:
 ## 📝 File Naming Conventions
 
 ### Business Unit-Level Files
-- Prefix: `org-`
-- Examples: `org-architecture.md`, `org-coding-standards.md`
+- Prefix: `wealth-and-fiduciary-`
+- Examples: `wealth-and-fiduciary-architecture.md`, `wealth-and-fiduciary-coding-standards.md`
 - Location: Application repo root `.kiro/steering/`
 
 ### Application-Level Files
@@ -399,7 +399,7 @@ Kiro loads steering files in this order:
 
 ### "Where do I define...?"
 
-**Technology stack (.NET version, frameworks)**: Business Unit-level (`org-architecture.md`)
+**Technology stack (.NET version, frameworks)**: Business Unit-level (`wealth-and-fiduciary-architecture.md`)
 
 **Application-wide patterns (multi-tenant, audit logging)**: Application-level (`app-architecture.md`)
 
@@ -423,7 +423,7 @@ Kiro loads steering files in this order:
 
 ## 📚 Related Documentation
 
-- **Business Unit Standards**: `.kiro/steering/org-*.md`
+- **Business Unit Standards**: `.kiro/steering/wealth-and-fiduciary-*.md`
 - **Application Standards**: `.kiro/steering/Applications/[Application]/app-*.md`
 - **Service Standards**: `.kiro/steering/Applications/[Application]/services/[Service]/*.md`
 - **Structure Diagram**: `.kiro/steering/FOUR-LEVEL-STRUCTURE.md`
