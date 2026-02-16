@@ -15,7 +15,12 @@ $failed = $false
 # 1. Linting - dotnet format
 Write-Host "[1/5] Running dotnet format (linting)..." -ForegroundColor Yellow
 try {
-    dotnet format --verify --no-restore
+    $projectPath = Join-Path $PSScriptRoot "DataLoaderService/DataLoaderService.csproj"
+    if (Test-Path $projectPath) {
+        dotnet format --verify --no-restore $projectPath
+    } else {
+        dotnet format --verify --no-restore
+    }
     if ($LASTEXITCODE -eq 0) {
         Write-Host "    Linting passed" -ForegroundColor Green
     } else {
@@ -31,7 +36,12 @@ Write-Host ""
 # 2. Build
 Write-Host "[2/5] Running build..." -ForegroundColor Yellow
 try {
-    $buildOutput = dotnet build --no-restore --configuration Release 2>&1 | Out-String
+    $projectPath = Join-Path $PSScriptRoot "DataLoaderService/DataLoaderService.csproj"
+    if (Test-Path $projectPath) {
+        $buildOutput = dotnet build $projectPath --no-restore --configuration Release 2>&1 | Out-String
+    } else {
+        $buildOutput = dotnet build --no-restore --configuration Release 2>&1 | Out-String
+    }
     if ($LASTEXITCODE -eq 0) {
         Write-Host "    Build passed" -ForegroundColor Green
     } else {
@@ -82,7 +92,12 @@ Write-Host ""
 # 3. Unit Tests
 Write-Host "[3/5] Running unit tests..." -ForegroundColor Yellow
 try {
-    dotnet test --no-build --configuration Release --filter "Category=Unit" --logger "trx;LogFileName=unit-tests.trx"
+    $projectPath = Join-Path $PSScriptRoot "DataLoaderService/DataLoaderService.csproj"
+    if (Test-Path $projectPath) {
+        dotnet test $projectPath --no-build --configuration Release --filter "Category=Unit" --logger "trx;LogFileName=unit-tests.trx"
+    } else {
+        dotnet test --no-build --configuration Release --filter "Category=Unit" --logger "trx;LogFileName=unit-tests.trx"
+    }
     if ($LASTEXITCODE -eq 0) {
         Write-Host "    Unit tests passed" -ForegroundColor Green
     } else {
@@ -98,7 +113,12 @@ Write-Host ""
 # 4. Integration Tests
 Write-Host "[4/5] Running integration tests..." -ForegroundColor Yellow
 try {
-    dotnet test --no-build --configuration Release --filter "Category=Integration" --logger "trx;LogFileName=integration-tests.trx"
+    $projectPath = Join-Path $PSScriptRoot "DataLoaderService/DataLoaderService.csproj"
+    if (Test-Path $projectPath) {
+        dotnet test $projectPath --no-build --configuration Release --filter "Category=Integration" --logger "trx;LogFileName=integration-tests.trx"
+    } else {
+        dotnet test --no-build --configuration Release --filter "Category=Integration" --logger "trx;LogFileName=integration-tests.trx"
+    }
     if ($LASTEXITCODE -eq 0) {
         Write-Host "    Integration tests passed" -ForegroundColor Green
     } else {
@@ -114,11 +134,18 @@ Write-Host ""
 # 5. Code Coverage
 Write-Host "[5/5] Running code coverage analysis..." -ForegroundColor Yellow
 try {
-    dotnet test --no-build --configuration Release `
-        /p:CollectCoverage=true `
-        /p:CoverletOutputFormat=opencover `
-        /p:CoverletOutput=./coverage/
-    
+    $projectPath = Join-Path $PSScriptRoot "DataLoaderService/DataLoaderService.csproj"
+    if (Test-Path $projectPath) {
+        dotnet test $projectPath --no-build --configuration Release `
+            /p:CollectCoverage=true `
+            /p:CoverletOutputFormat=opencover `
+            /p:CoverletOutput=./coverage/
+    } else {
+        dotnet test --no-build --configuration Release `
+            /p:CollectCoverage=true `
+            /p:CoverletOutputFormat=opencover `
+            /p:CoverletOutput=./coverage/
+    }
     Write-Host "    Code coverage analysis completed" -ForegroundColor Green
 } catch {
     Write-Host "    Code coverage analysis skipped" -ForegroundColor Yellow
