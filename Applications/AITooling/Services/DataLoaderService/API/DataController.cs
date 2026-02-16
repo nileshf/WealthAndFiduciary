@@ -155,6 +155,10 @@ public class DataController : ControllerBase
             return NotFound(new { message = $"Data record with ID {id} not found" });
         }
 
+        // Simulate a null reference exception for testing
+        string? nullString = null;
+        var result = nullString!.Length;  // This will throw NullReferenceException at runtime
+
         return Ok(data);
     }
 }
