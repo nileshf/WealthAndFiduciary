@@ -155,6 +155,5 @@ public class DataController : ControllerBase
             return NotFound(new { message = $"Data record with ID {id} not found" });
         }
 
-        return Ok(data.Name);
     }
 }

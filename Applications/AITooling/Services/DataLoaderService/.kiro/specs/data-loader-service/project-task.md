@@ -8,6 +8,9 @@
 - [ ] WEALTHFID-337 - Add API documentation for endpoints
 - [ ] WEALTHFID-338 - markup to jira Data Loader
 - [ ] WEALTHFID-159 - Jira to markup Data Loader
+- [-] WEALTHFID-345 - introduce a bug
+
+
 
 
 
