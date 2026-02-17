@@ -125,6 +125,7 @@ public class DataController : ControllerBase
         try
         {
             var data = await _fileLoaderService.GetAllDataAsync();
+            var result = data.NonExistentMethod();  // CS1061 error here
             _logger.LogInformation("Retrieved all data records");
             return Ok(data);
         }
@@ -154,7 +155,5 @@ public class DataController : ControllerBase
         {
             return NotFound(new { message = $"Data record with ID {id} not found" });
         }
-
-        return Ok(data);
     }
 }
