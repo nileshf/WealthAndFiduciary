@@ -1,37 +1,45 @@
-# Search Confluence for pre-commit build errors
-# Usage: .\search-confluence-error.ps1 -ErrorCode CS0161
-# This script searches both Confluence and local error database
+# Pre-commit error handler using MCP tools
+# Search Confluence and local error database for build errors
 
 param(
     [Parameter(Mandatory=$true)]
     [ValidatePattern('^CS\d{4}$')]
-    [string]$ErrorCode
+    [string]$ErrorCode,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$ServiceName = "Unknown",
+    
+    [Parameter(Mandatory=$false)]
+    [string]$FilePath = "Unknown",
+    
+    [Parameter(Mandatory=$false)]
+    [string]$LineNumber = "Unknown"
 )
 
+# Confluence configuration
+$confluencePageUrl = "https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041"
+$localErrorDb = ".kiro/post-mortems/confluence-pre-commit-errors.md"
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Build Error Handler" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Search local DB first
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Searching for error: $ErrorCode" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Confluence Page URL
-$confluenceUrl = "https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041"
-
-# Check local error database
-$localErrorDb = ".kiro/post-mortems/confluence-pre-commit-errors.md"
+$localErrorFound = $false
 if (Test-Path $localErrorDb) {
-    Write-Host "Checking local error database..." -ForegroundColor Yellow
-    Write-Host ""
-    
     $content = Get-Content $localErrorDb -Raw
-    
-    # Search for the error pattern in the local database
     if ($content -match "## $ErrorCode -") {
-        Write-Host "========================================" -ForegroundColor Cyan
+        $localErrorFound = $true
         Write-Host "Found in Local Error Database" -ForegroundColor Cyan
-        Write-Host "========================================" -ForegroundColor Cyan
         Write-Host ""
         
-        # Extract the error section using a simpler approach
+        # Extract the error section
         $lines = $content -split "`r?`n"
         $inErrorSection = $false
         $errorLines = @()
@@ -44,7 +52,6 @@ if (Test-Path $localErrorDb) {
             if ($inErrorSection) {
                 $errorLines += $line
                 
-                # Stop when we hit another section header
                 if ($line -match "^## [A-Z]" -and $line -notmatch "^## $ErrorCode -") {
                     break
                 }
@@ -58,7 +65,7 @@ if (Test-Path $localErrorDb) {
     }
 }
 
-# Kiro's Built-in Fix Suggestions
+# Get Kiro's fix suggestion
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Kiro's Fix Suggestion" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
@@ -192,20 +199,65 @@ switch ($ErrorCode) {
         Write-Host "Suggested Steps:" -ForegroundColor Green
         Write-Host "  1. Check the full error message in the build output" -ForegroundColor White
         Write-Host "  2. Search Confluence for the error code" -ForegroundColor White
-        Write-Host "  3. Check the local error database (.kiro/post-mortems/confluence-pre-commit-errors.md)" -ForegroundColor White
-        Write-Host "  4. Run 'dotnet build' with verbose output for more details" -ForegroundColor White
+        Write-Host "  3. Check the local error database" -ForegroundColor White
+        Write-Host ""
     }
 }
 
-Write-Host ""
+# Search Confluence using MCP tool
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Confluence Reference" -ForegroundColor Cyan
+Write-Host "Confluence Search Results" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Confluence Page: $confluenceUrl" -ForegroundColor White
-Write-Host ""
+
+try {
+    # Use MCP Confluence search tool
+    $confluenceResult = mcp_mcp_atlassian_confluence_search -query "$ErrorCode Pre-Commit" -limit 5
+    
+    if ($confluenceResult -and $confluenceResult -match '"results"') {
+        Write-Host "Confluence Search Results for: $ErrorCode Pre-Commit" -ForegroundColor White
+        Write-Host ""
+        
+        # Parse and display results
+        $results = $confluenceResult | ConvertFrom-Json
+        if ($results.results) {
+            foreach ($result in $results.results) {
+                $title = $result.title
+                $url = "https://nileshf.atlassian.net/wiki$page=$($result.id)"
+                Write-Host "Title: $title" -ForegroundColor Cyan
+                Write-Host "URL: $url" -ForegroundColor White
+                Write-Host ""
+            }
+        } else {
+            Write-Host "No results found on Confluence for: $ErrorCode Pre-Commit" -ForegroundColor Yellow
+            Write-Host ""
+        }
+    } else {
+        Write-Host "Confluence Search: Unable to fetch results" -ForegroundColor Yellow
+        Write-Host ""
+    }
+} catch {
+    Write-Host "Confluence Search: MCP tool not available" -ForegroundColor Yellow
+    Write-Host "Please visit: $confluencePageUrl" -ForegroundColor White
+    Write-Host ""
+}
+
+# Display Confluence page URL
+Write-Host "Confluence Page: $confluencePageUrl" -ForegroundColor White
 Write-Host "Search Pattern: $ErrorCode Pre-Commit" -ForegroundColor White
 Write-Host ""
+
+# Error location
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Error Location" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Service: $ServiceName" -ForegroundColor White
+Write-Host "File: $FilePath" -ForegroundColor White
+Write-Host "Line: $LineNumber" -ForegroundColor White
+Write-Host ""
+
+# Next steps
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Next Steps" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
@@ -215,3 +267,23 @@ Write-Host "2. Apply the suggested fix to your code" -ForegroundColor White
 Write-Host "3. Run 'dotnet build' to verify the fix" -ForegroundColor White
 Write-Host "4. Commit and push your changes" -ForegroundColor White
 Write-Host ""
+
+# If error not found in local database, add it
+if (-not $localErrorFound) {
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "New Error Detected" -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "This error is not yet documented in the local error database." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "To add this error to the database, update:" -ForegroundColor Yellow
+    Write-Host "  $localErrorDb" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Include:" -ForegroundColor Yellow
+    Write-Host "  - Error message" -ForegroundColor White
+    Write-Host "  - Root cause" -ForegroundColor White
+    Write-Host "  - Fix steps" -ForegroundColor White
+    Write-Host "  - Code example (before/after)" -ForegroundColor White
+    Write-Host "  - Date of occurrence" -ForegroundColor White
+    Write-Host ""
+}

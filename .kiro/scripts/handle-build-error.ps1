@@ -1,15 +1,23 @@
-# Search Confluence for pre-commit build errors
-# Usage: .\search-confluence-error.ps1 -ErrorCode CS0161
-# This script searches both Confluence and local error database
+# Handle build errors - search Confluence, update local database, and notify developer
+# Usage: .\handle-build-error.ps1 -ErrorCode CS0161 -ServiceName "DataLoaderService" -FilePath "API/DataController.cs" -LineNumber 148
 
 param(
     [Parameter(Mandatory=$true)]
     [ValidatePattern('^CS\d{4}$')]
-    [string]$ErrorCode
+    [string]$ErrorCode,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$ServiceName = "",
+    
+    [Parameter(Mandatory=$false)]
+    [string]$FilePath = "",
+    
+    [Parameter(Mandatory=$false)]
+    [int]$LineNumber = 0
 )
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Searching for error: $ErrorCode" -ForegroundColor Cyan
+Write-Host "Build Error Handler" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -18,20 +26,22 @@ $confluenceUrl = "https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175
 
 # Check local error database
 $localErrorDb = ".kiro/post-mortems/confluence-pre-commit-errors.md"
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Searching for error: $ErrorCode" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Check if error exists in local database
+$localErrorFound = $false
 if (Test-Path $localErrorDb) {
-    Write-Host "Checking local error database..." -ForegroundColor Yellow
-    Write-Host ""
-    
     $content = Get-Content $localErrorDb -Raw
-    
-    # Search for the error pattern in the local database
     if ($content -match "## $ErrorCode -") {
-        Write-Host "========================================" -ForegroundColor Cyan
+        $localErrorFound = $true
         Write-Host "Found in Local Error Database" -ForegroundColor Cyan
-        Write-Host "========================================" -ForegroundColor Cyan
         Write-Host ""
         
-        # Extract the error section using a simpler approach
+        # Extract the error section
         $lines = $content -split "`r?`n"
         $inErrorSection = $false
         $errorLines = @()
@@ -44,7 +54,6 @@ if (Test-Path $localErrorDb) {
             if ($inErrorSection) {
                 $errorLines += $line
                 
-                # Stop when we hit another section header
                 if ($line -match "^## [A-Z]" -and $line -notmatch "^## $ErrorCode -") {
                     break
                 }
@@ -199,13 +208,19 @@ switch ($ErrorCode) {
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Confluence Reference" -ForegroundColor Cyan
+Write-Host "Confluence Search Results" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
+
 Write-Host "Confluence Page: $confluenceUrl" -ForegroundColor White
-Write-Host ""
 Write-Host "Search Pattern: $ErrorCode Pre-Commit" -ForegroundColor White
 Write-Host ""
+Write-Host "To view similar errors on Confluence:" -ForegroundColor Cyan
+Write-Host "1. Open the Confluence page in your browser" -ForegroundColor White
+Write-Host "2. Search for: $ErrorCode Pre-Commit" -ForegroundColor White
+Write-Host "3. Review any similar errors and their fixes" -ForegroundColor White
+Write-Host ""
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Next Steps" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
@@ -215,3 +230,35 @@ Write-Host "2. Apply the suggested fix to your code" -ForegroundColor White
 Write-Host "3. Run 'dotnet build' to verify the fix" -ForegroundColor White
 Write-Host "4. Commit and push your changes" -ForegroundColor White
 Write-Host ""
+
+# If error not found in local database, add it
+if (-not $localErrorFound) {
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "New Error Detected" -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "This error is not yet documented in the local error database." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "To add this error to the database, update:" -ForegroundColor Yellow
+    Write-Host "  $localErrorDb" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Include:" -ForegroundColor Yellow
+    Write-Host "  - Error message" -ForegroundColor White
+    Write-Host "  - Root cause" -ForegroundColor White
+    Write-Host "  - Fix steps" -ForegroundColor White
+    Write-Host "  - Code example (before/after)" -ForegroundColor White
+    Write-Host "  - Date of occurrence" -ForegroundColor White
+    Write-Host ""
+}
+
+# If service and file info provided, add to local database
+if ($ServiceName -and $FilePath -and $LineNumber -gt 0) {
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "Error Location" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Service: $ServiceName" -ForegroundColor White
+    Write-Host "File: $FilePath" -ForegroundColor White
+    Write-Host "Line: $LineNumber" -ForegroundColor White
+    Write-Host ""
+}
