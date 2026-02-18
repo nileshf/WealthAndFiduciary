@@ -52,7 +52,7 @@ jobs:
         run: |
           echo "=== Jira Transition Step ==="
           echo "Issue Key: '$ISSUE_KEY'"
-          echo "Token exists: $([ -n '$JIRA_API_TOKEN' ] && echo 'yes' || echo 'no')"
+          echo "Token length: ${#JIRA_API_TOKEN}"
           
           # Check if issue key is empty
           if [ -z "$ISSUE_KEY" ]; then
@@ -66,9 +66,9 @@ jobs:
           # Make the transition request
           HTTP_CODE=$(curl -s -o /tmp/jira_response.txt -w "%{http_code}" -X POST \
             -H "Content-Type: application/json" \
-            -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
+            -u "${JIRA_USERNAME}:${JIRA_API_TOKEN}" \
             -d '{"transition":{"id":"5"}}' \
-            "$JIRA_BASE_URL/rest/api/3/issue/$ISSUE_KEY/transitions")
+            "${JIRA_BASE_URL}/rest/api/3/issue/${ISSUE_KEY}/transitions")
           
           RESPONSE=$(cat /tmp/jira_response.txt)
           
