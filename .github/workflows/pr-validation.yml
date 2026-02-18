@@ -29,47 +29,56 @@ jobs:
       - name: Extract Jira issue key
         id: jira
         run: |
-          ISSUE_KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oiP '[A-Z]+-\d+' | head -1 || echo "")
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          echo "Branch name: $BRANCH_NAME"
+          
+          # Try multiple patterns to extract issue key
+          ISSUE_KEY=$(echo "$BRANCH_NAME" | grep -oiP '[A-Z]+-\d+' | head -1)
+          
+          if [ -z "$ISSUE_KEY" ]; then
+            echo "No issue key found in branch name"
+            ISSUE_KEY=""
+          fi
+          
           echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
+          echo "Extracted issue key: $ISSUE_KEY"
       
       - name: Transition Jira Issue to In Review
-        if: steps.jira.outputs.issue_key != ''
         env:
           JIRA_BASE_URL: https://nileshf.atlassian.net
           JIRA_USERNAME: nileshf@gmail.com
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          ISSUE_KEY: ${{ steps.jira.outputs.issue_key }}
         run: |
-          ISSUE_KEY="${{ steps.jira.outputs.issue_key }}"
-          echo "Transitioning Jira issue: $ISSUE_KEY"
+          echo "=== Jira Transition Step ==="
+          echo "Issue Key: '$ISSUE_KEY'"
+          echo "Token exists: $([ -n '$JIRA_API_TOKEN' ] && echo 'yes' || echo 'no')"
           
-          # Transition ID 5 is "In Review" (verified from Jira API)
-          TRANSITION_ID="5"
+          # Check if issue key is empty
+          if [ -z "$ISSUE_KEY" ]; then
+            echo "⚠️  No Jira issue key found in branch name"
+            echo "Branch name format should be: feat: JIRA-123-description"
+            exit 0
+          fi
           
-          echo "Using transition ID: $TRANSITION_ID"
+          echo "Attempting to transition $ISSUE_KEY to 'In Review'..."
           
           # Make the transition request
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          HTTP_CODE=$(curl -s -o /tmp/jira_response.txt -w "%{http_code}" -X POST \
             -H "Content-Type: application/json" \
             -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
-            -d "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}" \
+            -d '{"transition":{"id":"5"}}' \
             "$JIRA_BASE_URL/rest/api/3/issue/$ISSUE_KEY/transitions")
           
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
+          RESPONSE=$(cat /tmp/jira_response.txt)
           
           echo "HTTP Status: $HTTP_CODE"
-          echo "Response: $BODY"
+          echo "Response: $RESPONSE"
           
           if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Successfully transitioned issue $ISSUE_KEY to 'In Review'"
+            echo "✅ Successfully transitioned $ISSUE_KEY to 'In Review'"
           else
-            echo "⚠️  Transition request completed with status $HTTP_CODE"
+            echo "⚠️  Transition returned HTTP $HTTP_CODE"
             echo "This may be expected if the issue is already in 'In Review' status"
           fi
-      
-      - name: Debug - Show extracted issue key
-        if: always()
-        run: |
-          echo "Extracted issue key: ${{ steps.jira.outputs.issue_key }}"
-          echo "Branch name: ${{ github.event.pull_request.head.ref }}"
-          echo "Jira transition completed successfully"
+
