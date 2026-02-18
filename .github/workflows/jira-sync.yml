@@ -80,9 +80,9 @@ jobs:
               TRANSITION_ID="6"
               TRANSITION_NAME="Changes Requested"
             elif [ "${{ github.event.review.state }}" = "approved" ]; then
-              # Review approved - move to "Done"
-              TRANSITION_ID="31"
-              TRANSITION_NAME="Done"
+              # Review approved - move to "Ready to Merge"
+              TRANSITION_ID="4"
+              TRANSITION_NAME="Ready to Merge"
             fi
           fi
           
