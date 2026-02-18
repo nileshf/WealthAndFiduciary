@@ -1,118 +1,47 @@
-# Pre-Commit Build Errors - Confluence Reference
+# Pre-Commit Build Errors Database
 
-This page contains common pre-commit build errors and their fixes.
+> **Purpose**: Local database of pre-commit build errors with solutions
+> **Last Updated**: 2026-02-18
+> **Scope**: All microservices in WealthAndFiduciary
+> **Confluence Link**: https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041
 
-## CS0161 - Not all code paths return a value
+## Error Categories
 
-**Error Message**: `'MethodName': not all code paths return a value`
+### CS0103 - Name Does Not Exist in Current Context
 
-**Root Cause**: A non-void method is missing a return statement for one or more code paths.
+**Description**: Using a variable, method, class, or namespace that hasn't been defined or is out of scope.
 
-**Quick Fix**: Add a return statement for all code paths.
+**Common Causes**:
+- Typo in variable/method name
+- Missing using statement
+- Variable declared in wrong scope
+- Method not defined in class
+- Namespace not imported
 
-**Code Example**:
-
-```csharp
-// BEFORE (broken):
-public string GetName()
-{
-    if (condition)
-    {
-        return "value";
-    }
-    // Missing return for else case
-}
-
-// AFTER (fixed):
-public string GetName()
-{
-    if (condition)
-    {
-        return "value";
-    }
-    return "default";
-}
-```
-
-**Prevention**: Always ensure all code paths return a value. Use `return default(Type);` for empty paths.
-
----
-
-## CS1061 - 'Type' does not contain a definition for 'Member'
-
-**Error Message**: `'Type' does not contain a definition for 'Member'`
-
-**Root Cause**: Trying to access a property or method that doesn't exist on a type.
-
-**Quick Fix**: Check the type definition and use the correct member name.
+**Quick Fix**:
+1. Check for typos in the identifier name
+2. Verify the identifier is declared before use
+3. Add missing `using` statements
+4. Check variable scope (local, class, namespace)
 
 **Code Example**:
 
+BEFORE (broken):
 ```csharp
-// BEFORE (broken):
-var user = new User();
-var name = user.Nmae;  // Typo: should be Name
-
-// AFTER (fixed):
-var user = new User();
-var name = user.Name;
-```
-
-**Prevention**: Use IDE autocomplete, enable nullable reference types, run `dotnet build` before committing.
-
----
-
-## CS0246 - The type or namespace name 'Type' could not be found
-
-**Error Message**: `The type or namespace name 'Type' could not be found`
-
-**Root Cause**: Missing using directive or assembly reference.
-
-**Quick Fix**: Add the missing using directive or package reference.
-
-**Code Example**:
-
-```csharp
-// BEFORE (broken):
-public class MyClass
-{
-    private ILogger _logger;  // Missing using Microsoft.Extensions.Logging;
-}
-
-// AFTER (fixed):
-using Microsoft.Extensions.Logging;
-
-public class MyClass
-{
-    private ILogger _logger;
-}
-```
-
-**Prevention**: Use IDE suggestions to add missing usings, run `dotnet restore` before building.
-
----
-
-## CS0103 - The name 'Identifier' does not exist in the current context
-
-**Error Message**: `The name 'Identifier' does not exist in the current context`
-
-**Root Cause**: Using a variable, method, or class that hasn't been defined.
-
-**Quick Fix**: Define the identifier or check for typos.
-
-**Code Example**:
-
-```csharp
-// BEFORE (broken):
 public void MyMethod()
 {
     var result = CalculateSum(1, 2);  // CalculateSum doesn't exist
+    Console.WriteLine(undefinedVariable);  // undefinedVariable not defined
 }
+```
 
-// AFTER (fixed):
+AFTER (fixed):
+```csharp
 public void MyMethod()
 {
     var result = Add(1, 2);  // Fixed method name
+    var myVariable = 42;
+    Console.WriteLine(myVariable);  // Now defined
 }
 
 private int Add(int a, int b)
@@ -121,131 +50,165 @@ private int Add(int a, int b)
 }
 ```
 
-**Prevention**: Use IDE autocomplete, run `dotnet build` before committing.
+**Prevention**:
+- Use IDE autocomplete (IntelliSense)
+- Run `dotnet build` before committing
+- Enable compiler warnings in IDE
+- Use code analysis tools (Roslyn analyzers)
+
+**Related Issues**:
+- SecurityService: CS0103 in AuthController.cs (FIXED)
+- DataLoaderService: CS1061 in DataController.cs (FIXED)
 
 ---
 
-## How to Use This Page
+### CS0161 - Not All Code Paths Return a Value
 
-1. **See an error?** Copy the error message
-2. **Search Confluence**: Use the error code as the search term
-3. **Find the fix**: Look for the matching error pattern
-4. **Apply the fix**: Follow the code example
-5. **Commit again**: Run `git commit` after fixing
+**Description**: A method that should return a value has at least one code path that doesn't return anything.
 
----
+**Common Causes**:
+- Missing `return` statement in conditional branch
+- Exception not thrown in error case
+- Unreachable code after conditional
+- Missing `else` clause
 
-## Adding New Errors
+**Quick Fix**:
+1. Identify all code paths in the method
+2. Ensure each path returns a value or throws an exception
+3. Add missing `return` statements
+4. Consider using `throw` for error cases
 
-When you encounter a new pre-commit error:
+**Code Example**:
 
-1. Create a new entry in this document
-2. Include: error message, root cause, fix, code example
-3. Update the pre-commit hook to reference this page
-4. Add to the `.kiro/post-mortems/` folder for history
-
-## Confluence Page
-
-**URL**: https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041
-
-**Search Pattern**: `[Error Code] Pre-Commit`
-
-When you see a pre-commit build error, search Confluence for the error code to find similar issues and their fixes.
-
-## Confluence Page
-
-**URL**: https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041
-
-**Search Pattern**: `[Error Code] Pre-Commit`
-
-When you see a pre-commit build error, search Confluence for the error code to find similar issues and their fixes.
-
-## How It Works
-
-1. **Pre-commit fails** → Kiro searches Confluence for similar errors
-2. **If similar error found** → Kiro shows developer: Confluence page + suggested fix
-3. **After fix** → Kiro automatically updates Confluence page and error database
-4. **Developer gets notification** with all details
-**Prevention**: Use IDE autocomplete, run `dotnet build` before committing.
-
----
-
-## Updated: 2026-02-13 - CS0161 Post-Mortem
-
-### Error Pattern: CS0161 - Not all code paths return a value
-
-**Error Message**: `'DataController.GetById(int)': not all code paths return a value`
-
-**File**: `Applications/AITooling/Services/DataLoaderService/API/DataController.cs`
-
-**Line**: ~148
-
-**Root Cause**: The `GetById` method was missing a return statement for the success case.
-
-**Fix Applied**:
+BEFORE (broken):
 ```csharp
-// BEFORE:
-if (data == null)
+public string GetStatus(bool isActive)
 {
-    return NotFound(new { message = $"Data record with ID {id} not found" });
+    if (isActive)
+    {
+        return "Active";
+    }
+    // Missing return for false case!
 }
-// Missing return statement!
-
-// AFTER:
-if (data == null)
-{
-    return NotFound(new { message = $"Data record with ID {id} not found" });
-}
-
-return Ok(data);  // ← Added this line
 ```
 
-**Confluence Page**: https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041
+AFTER (fixed):
+```csharp
+public string GetStatus(bool isActive)
+{
+    if (isActive)
+    {
+        return "Active";
+    }
+    return "Inactive";  // All paths now return
+}
 
-**Search Pattern**: `CS0161 Pre-Commit`
+// OR with exception:
+public string GetStatus(bool? isActive)
+{
+    return isActive switch
+    {
+        true => "Active",
+        false => "Inactive",
+        null => throw new ArgumentNullException(nameof(isActive))
+    };
+}
+```
 
-**Incident Date**: 2026-02-13
+**Prevention**:
+- Use switch expressions (C# 8+) for exhaustive checks
+- Enable compiler warnings
+- Use code analysis tools
+- Write unit tests for all code paths
 
-**Status**: Resolved
-
-**Post-Mortem**: `.kiro/post-mortems/pre-commit-failure-2026-02-13.md`
-
----
-
-## How to Use This Page
-
-1. **See an error?** Copy the error message
-2. **Search Confluence**: Use the error code as the search term
-3. **Find the fix**: Look for the matching error pattern
-4. **Apply the fix**: Follow the code example
-5. **Commit again**: Run `git commit` after fixing
-
----
-
-## Adding New Errors
-
-When you encounter a new pre-commit error:
-
-1. Create a new entry in this document
-2. Include: error message, root cause, fix, code example
-3. Update the pre-commit hook to reference this page
-4. Add to the `.kiro/post-mortems/` folder for history
-
----
-
-## Confluence Page
-
-**URL**: https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041
-
-**Search Pattern**: `[Error Code] Pre-Commit`
-
-When you see a pre-commit build error, search Confluence for the error code to find similar issues and their fixes.
+**Related Issues**:
+- SecurityService: CS0161 in AuthController.cs (SIMULATED)
+- DataLoaderService: CS0161 in DataController.cs (FIXED)
 
 ---
 
-## How It Works
+### CS1061 - Type Does Not Contain Definition
 
-1. **Pre-commit fails** → Kiro searches Confluence for similar errors
-2. **If similar error found** → Kiro shows developer: Confluence page + suggested fix
-3. **After fix** → Kiro automatically updates Confluence page and error database
-4. **Developer gets notification** with all details
+**Description**: Calling a method or accessing a property that doesn't exist on the type.
+
+**Common Causes**:
+- Method name typo
+- Method doesn't exist on the type
+- Missing using statement for extension methods
+- Accessing private/internal member from outside
+- Wrong object type
+
+**Quick Fix**:
+1. Check method name spelling
+2. Verify method exists on the type
+3. Add missing `using` statements for extension methods
+4. Check access modifiers (public, private, internal)
+
+**Code Example**:
+
+BEFORE (broken):
+```csharp
+public void ProcessData()
+{
+    var data = new List<string>();
+    data.NonExistentMethod();  // Method doesn't exist
+    var count = data.Lenght;   // Typo: should be Length
+}
+```
+
+AFTER (fixed):
+```csharp
+public void ProcessData()
+{
+    var data = new List<string>();
+    data.Add("item");  // Correct method
+    var count = data.Count;  // Correct property
+}
+```
+
+**Prevention**:
+- Use IDE autocomplete
+- Run `dotnet build` before committing
+- Enable IntelliSense in your editor
+- Use code analysis tools
+
+**Related Issues**:
+- DataLoaderService: CS1061 in DataController.cs (FIXED)
+
+---
+
+## Error Resolution Workflow
+
+When a pre-commit error occurs:
+
+1. **Identify Error Code**: Look at the error message (e.g., CS0103, CS0161)
+2. **Search This Database**: Find the error category above
+3. **Review Quick Fix**: Follow the suggested fix steps
+4. **Check Code Example**: Compare your code to the before/after example
+5. **Apply Fix**: Make the necessary code changes
+6. **Verify**: Run `dotnet build` to confirm the fix
+7. **Commit**: Once fixed, proceed with commit
+
+## Confluence Integration
+
+All errors are documented in Confluence at:
+https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041
+
+**To add a new error**:
+1. Document the error here in this file
+2. Create a Confluence page with the same information
+3. Link the Confluence page in this file
+4. Share the link with the team
+
+## Statistics
+
+- **Total Errors Tracked**: 3
+- **Errors Fixed**: 2
+- **Errors Simulated**: 1
+- **Last Error**: 2026-02-18 (CS0161 - SecurityService)
+
+---
+
+**Maintained By**: Kiro AI Assistant
+**Last Updated**: 2026-02-18
+**Next Review**: 2026-02-25

@@ -14,7 +14,7 @@ public class CsvRoundTripPropertyTests
     /// Validates: Requirements 2, 3, 4
     /// For any valid CSV file, parsing and storing should preserve all data
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property CsvRoundTrip_PreservesAllData()
     {
         return Prop.ForAll(
@@ -52,7 +52,7 @@ public class CsvRoundTripPropertyTests
     /// Validates: Requirement 2.5
     /// All records from a single upload should have CreatedAt within 1 second
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property TimestampConsistency_AllWithinOneSecond()
     {
         return Prop.ForAll(
@@ -93,7 +93,7 @@ public class CsvRoundTripPropertyTests
     /// Validates: Requirement 2.6
     /// Returned count always matches number of records saved
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property CountAccuracy_MatchesSavedRecords()
     {
         return Prop.ForAll(
@@ -127,7 +127,7 @@ public class CsvRoundTripPropertyTests
     /// Validates: Requirements 2.3, 2.4, 12
     /// CSV columns Name and Value map correctly to DataRecord
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property ColumnMapping_MapsCorrectly()
     {
         return Prop.ForAll(

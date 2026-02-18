@@ -30,6 +30,8 @@ bld/
 *.nupkg
 **/packages/*
 !**/packages/build/
+# Allow .nuget folder for NuGet caching
+!.nuget/
 
 # Entity Framework Migrations
 **/Migrations/

@@ -3,9 +3,7 @@ using SecurityService.Domain;
 
 namespace SecurityService.Infrastructure;
 
-public class SecurityDbContext : DbContext
+public class SecurityDbContext(DbContextOptions<SecurityDbContext> options) : DbContext(options)
 {
-    public SecurityDbContext(DbContextOptions<SecurityDbContext> options) : base(options) { }
-
-    public DbSet<User> Users { get; set; }
+    public required DbSet<User> Users { get; set; }
 }
