@@ -34,6 +34,7 @@ jobs:
         if: steps.jira.outputs.issue_key != ''
         env:
           JIRA_BASE_URL: https://nileshf.atlassian.net
+          JIRA_USERNAME: nileshf@gmail.com
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           ISSUE_KEY: ${{ steps.jira.outputs.issue_key }}
         run: |
@@ -70,13 +71,10 @@ jobs:
           
           echo "Attempting to transition $ISSUE_KEY to '$TRANSITION_NAME' (ID: $TRANSITION_ID)..."
           
-          # Encode credentials for Basic Auth (email:api_token)
-          AUTH_HEADER=$(echo -n "nileshf@gmail.com:$JIRA_API_TOKEN" | base64)
-          
           # Make the transition request
           HTTP_CODE=$(curl -s -o /tmp/jira_response.txt -w "%{http_code}" -X POST \
             -H "Content-Type: application/json" \
-            -H "Authorization: Basic $AUTH_HEADER" \
+            -u "${JIRA_USERNAME}:${JIRA_API_TOKEN}" \
             -d "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}" \
             "${JIRA_BASE_URL}/rest/api/3/issue/${ISSUE_KEY}/transitions")
           
@@ -87,11 +85,7 @@ jobs:
           
           if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
             echo "✅ Successfully transitioned $ISSUE_KEY to '$TRANSITION_NAME'"
-          elif [ "$HTTP_CODE" = "404" ]; then
-            echo "⚠️  Issue not found or no permission. Verify:"
-            echo "   - Issue $ISSUE_KEY exists in Jira"
-            echo "   - API token has access to this issue"
-            echo "   - Issue key is correct (case-sensitive)"
           else
             echo "⚠️  Transition returned HTTP $HTTP_CODE"
+            echo "This may be expected if the issue is already in the target status"
           fi
