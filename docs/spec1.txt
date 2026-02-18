@@ -1,0 +1,212 @@
+can I have an end to end , step by step way to test the automatic task creation and movement, happy path and  ci/cd failure and code review success and failure, with the updating of  and using of post mortem file in confluence, and kiro suggestions to fix bugs and updating git, jira, confluence. Use the AITooling DataLoading service and security service to test. I also want full details on how to start the apps, how to commit etc to github and show all different possible paths and also how to setup jira. use the WEALTHFID key for jira and confluence. use MCP, note the test can first be run before push and we can get kiro suggestions and maybe advice from confluence post mortem file. Ensure no bloating in post mortem on update. the jira and confluence project/space is WealthAndFiduciary the key is WEALTHFID.
+
+can I have an end to end , step by step way to track the microservices in AITooling.
+Automatically create a task in jira if the microservice's project-task.md file gets a new task. or vice versa.
+Update the task in the microservice's project-task.md with the task details from jira (id, etc)
+This is bi directional. but the status ie. TO DO, IN PROGRESS, IN REVIEW, TESTING, READY TO MERGE,DONE is automatically assigned by jira or the ci/cd , pr, code review git flow. Jira is the truth . but ci/cd , pr, code review git flow updatees jira automatically.
+can we use the rest API as I think MCP does not have access.
+the jira and confluence project/space is WealthAndFiduciary the key is WEALTHFID.
+
+- [ ] Task 1 - Not started yet
+- [~] Task 2 - Queued and waiting to run
+- [-] Task 3 - Currently being worked on
+- [x] Task 4 - Already completed
+
+[ ] = Jira status is TO DO
+[-] = Jira status is IN PROGRESS or IN REVIEW
+[~] = Jira status is TESTING or READY TO MERGE
+[x] = Jira status is DONE
+
+WealthAndFiduciary has multiple microservices with their own project-task.md, the jira tasks need to ensure that the correct project-task.md is updated with the details etc.
+
+
+
+the idea is - 
+
+use a similar pattern that we use for jira-sync-* for Confluence update/append.
+
+ 
+
+The pre-commit script must run when we commit, it must ensure that the jira ticket number and a prefix eg. 
+
+feat: - new feature
+
+fix: - bug fix
+
+docs: - documentation
+
+refactor: - code refactoring
+
+test: - tests
+
+chore: - maintenance tasks is in the name of the PR and the description.
+
+- if there is an error.
+
+1/ connect to Confluence, search the Service's Pre-Commit Errors page and pass back the details of the error, if it does not exist then append the Service's Pre-Commit Errors page with the details of the error and  possible resolution as suggested by kiro to the  Service's Pre-Commit Errors page for future.
+
+2/ clear the service's local Pre-Commit file that sits in the service's .kiro/pre-commit folder, and add the details that were retreived from confluence and the kiro suggested fix with the full details of the error.
+
+
+the idea is - 
+
+
+
+The pre-commit script must run when we commit, it must ensure that the jira ticket number and a prefix eg. 
+
+feat: - new feature
+
+fix: - bug fix
+
+docs: - documentation
+
+refactor: - code refactoring
+
+test: - tests
+
+chore: - maintenance tasks is in the name of the PR and the description.
+
+- if there is an error.
+
+1/ connect to Confluence, search the Service's Pre-Commit Errors page and pass back the details of the error, if it does not exist then append the Service's Pre-Commit Errors page with the details and  possible resolution as suggested by kiro to the  Service's Pre-Commit Errors page for future.
+
+2/ clear the service's local Pre-Commit file that sits in the service's .kiro/pre-commit folder, and add the details that were retreived from confluence and the kiro suggested fix with the full details of the error.
+
+creation and movement, happy path and  ci/cd failure and code review success and failure, with the updating of  and using of post mortem file in confluence, and kiro suggestions to fix bugs and updating git, jira, confluence. Use the AITooling DataLoading service and security service to test. I also want full details on how to start the apps, how to commit etc to github and show all different possible paths and also how to setup jira. use the WEALTHFID key for jira and confluence. use MCP, note the test can first be run before push and we can get kiro suggestions and maybe advice from confluence post mortem file. Ensure no bloating in post mortem on update. the jira and confluence project/space is WealthAndFiduciary the key is WEALTHFID.
+
+but it should add the jira task to correct project-task.md using the label when I create a jira task with the id etc and status. if I add a task or change status using [ ] = Jira status is TO DO
+
+[-] = Jira status is IN PROGRESS or IN REVIEW
+
+[~] = Jira status is TESTING or READY TO MERGE
+
+[x] = Jira status is DONE
+
+it must update jira and move to correct state.
+
+*****seems sync project tasks to jira is not in github. Let us change it mad make it so that it updated the tasks in jira with correct status, in a different workflow. let us split the workflow into independant functioning pieces.
+
+1/ If task in jira and not in the microservice's project-task.md add task to project-task.md with jira details and comments etc.
+
+2/ if task in microservice project-task.md and not in jira add to jira. update project-task with the jira details and comments etc.
+
+3/ if the status of the task changes in jira , update it in the microservices's
+
+project-task.md, and add the comments and details.
+
+[ ] = Jira status is TO DO
+
+[-] = Jira status is IN PROGRESS or IN REVIEW
+
+[~] = Jira status is TESTING or READY TO MERGE
+
+[x] = Jira status is DONE
+
+4/ if the status of the task changes in microservices's
+
+project-task.md , update it in jira, and add the jira comments and details to project-task.md.
+
+[ ] = Jira status is TO DO
+
+[-] = Jira status is IN PROGRESS or IN REVIEW
+
+[~] = Jira status is TESTING or READY TO MERGE
+
+[x] = Jira status is DONE
+
+  1. Step 1: Pull Missing Tasks from Jira - adds jira details to Markdown
+  2. Step 2: Push New Tasks to Jira - updates  jira details to Markdown
+  3. Step 3: Sync Jira Status to Markdown -
+  4. Step 4: Sync Markdown Status to Jira
+  5. Run All Steps (Orchestration)
+
+These must be automated, so the order must be, 1,2,3,4 Jira is the truth so the microservice's project-task.md must reflect Jira.
+
+
+if file exist\
+Test-Path "C:\AIDemo\WealthAndFiduciary\scripts\setup-jira-sync.ps1" -PathType Leaf\
+
+check syntax
+[System.IO.File]::ReadAllText("C:\AIDemo\WealthAndFiduciary\scripts\setup-jira-sync.ps1") | Out-Null; Write-Host "✓ Script syntax is valid"
+powershell -NoProfile -Command "& {[scriptblock]::Create([System.IO.File]::ReadAllText('C:\AIDemo\WealthAndFiduciary\scripts\setup-jira-sync.ps1')) | Out-Null; Write-Host '✓ Script syntax is valid' -ForegroundColor Green}"
+
+if it fails I want to look at the error , look at the confluence Post mortem file for that microservice, see if error occured before, send a message to show details and how to fix, and kiro must also give suggestions, and the post mortem must be updated with the error (without bloating the postmortem) and resolution suggestions. Once resolved, it must also update to show what fixed the error.
+
+wait now that it failed should confluence Postmortem not be updated, and Kira suggested fix be communicated to developer with confluence details to show how, what why and where to fix.
+
+yes, this will be appended every time this error occurs, and we should only update relavent detail so as to avoid bloating, so net time we get the error we must tell the developer also the details from the confluence page. And kiro suggested fix. and how it was fixed previously. 
+
+
+
+Also after the fix we need to ensure that the details are updated in confluence post mortem for future.
+no. the confluence post mortem must be searched for a similar error in order to assist.
+
+wait the search confluence for error, find similar issues, and get kiro suggested fix, and creating/updating entries to confluence-pre-commit-page and confluence-precommit-errors should be automatic. The develope should just get a notification.email, message with the details and suggestions for ach error so that he/she can fix it.
+
+****pre-commit process****
+if precommit pick up a build error
+1/ look at local database 
+
+
+
+GIT
+**************
+1/ tasks are synched.
+2/ developer starts coding on a task
+3/ git add .
+4/ git commit (runs local pre-commit hook)
+5/ 	success = commit succeed.
+6/	fail = search confluence page for similar error, if found send message to developer with details of how, when where etc, also add kiro's suggestion for fix to the message.
+7/ developer fixes code or lets kiro fix code.
+8/ .add and commit again.(runs local pre-commit hook)
+9/ 	on success , update the pre-commit-page in confluence with details without bloating it ( number of times error occured etc)
+10/ on failure repeat from 6 to 8, on success allow commit
+
+on PR the jira task need to move to in review. On ci/Cd success, the task need to stay on in review until code review done, then if succesful then move to done. If ci/cd fails, move back to in progress, search confluence for the error, update or create in post mortem in confluence, get kiro to suggest a fix, anfd inform developer assigned. on success  
+
+1/ pr - the jira task need to move to IN REVIEW.
+2/ Run CCI/CD.
+5/ 	success = task stay IN REVIEW. (move to 11 code review)
+6/	fail = search confluence page for similar error, if found send message to developer with details of how, when where etc, also add kiro's suggestion for fix to the message. Update Confluence Post Mortem page (keep it clean do not bloat it)
+7/ developer fixes code.
+8/ .add and commit again.(runs local pre-commit hook)
+9/ 	on success , update the post-commit-page in confluence with details without bloating it ( number of times error occured etc).  task stay IN REVIEW. (move to 11 code review)
+10/ on failure repeat from 6 to 0
+11/ Run code review.
+5/ 	success = task move to DONE
+6/	fail = search confluence page for similar error, if found send message to developer with details of how, when where etc, also add kiro's suggestion for fix to the message. Update Confluence Post Mortem page (keep it clean do not bloat it)
+
+
+in github
+1/ when PR created - it must be created with a prefix and jira details and move jira ticket to IN REVIEW
+Add a prefix to your PR title:
+
+chore: Wealthfid 228 test task hook, kiro
+docs: Wealthfid 228 test task hook, kiro
+refactor: Wealthfid 228 test task hook, kiro
+fix: Wealthfid 228 test task hook, kiro
+Or use one of these prefixes (based on what your change does):
+
+feat: - new feature
+fix: - bug fix
+docs: - documentation
+refactor: - code refactoring
+test: - tests
+chore: - maintenance tasks
+
+on creation of pr the jira ticket must be moved to IN REVIEW
+Happy path
+1/ if CI/CD success jira ticket stay in IN REVIEW and perform code review
+and if code review success move jira ticket to TESTING.run jira-sync-step4-sync-markdown-status.ps1 (to move jira status to markdown)
+
+
+Failure path
+if CI/CD fails move jira ticket to CHANGES REQUESTED else go to 1/
+if code review fails move jira ticket to CHANGES REQUESTED. run jira-sync-step4-sync-markdown-status.ps1 (to move jira status to markdown)
+
+also can we stop markdown from updating jira jira-sync-step3-sync-jira-status, because i see if github changes jira it should not be overwritten by markdown, because Jira is the truth.
+
+
+
+I have an idea..... let each step run through each service and load the services's .env and process. let run-all steps not controll the loading of env and running through each service. Also if the service is run with the service name it must only run for that service.
+
