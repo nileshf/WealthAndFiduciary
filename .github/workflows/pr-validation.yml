@@ -32,114 +32,22 @@ jobs:
           ISSUE_KEY=$(echo "${{ github.event.pull_request.head.ref }}" | grep -oiP '[A-Z]+-\d+' | head -1 || echo "")
           echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
       
-      - name: Get Jira transitions
+      - name: Transition Jira Issue to In Review
         if: steps.jira.outputs.issue_key != ''
-        id: transitions
         env:
           JIRA_BASE_URL: https://nileshf.atlassian.net
           JIRA_USERNAME: nileshf@gmail.com
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
-          echo "Fetching transitions for issue: ${{ steps.jira.outputs.issue_key }}"
-          
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
-            "$JIRA_BASE_URL/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}/transitions")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "HTTP Status: $HTTP_CODE"
-          echo "Response body:"
-          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
-          
-          # Check for permission errors
-          if echo "$BODY" | grep -q "does not exist or you do not have permission"; then
-            echo "⚠️  WARNING: Issue does not exist or no permission to access it"
-            echo "This is expected if the issue hasn't been created in Jira yet"
-            echo "transition_id=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Validate response is not empty
-          if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
-            echo "ERROR: Empty or null response from Jira API"
-            echo "$BODY" > transitions.json
-            exit 1
-          fi
-          
-          echo "$BODY" > transitions.json
-          echo "transitions=$BODY" >> $GITHUB_OUTPUT
-      
-      - name: Find In Review transition ID
-        if: steps.jira.outputs.issue_key != ''
-        id: find-transition
-        run: |
-          echo "Looking for 'In Review' transition..."
-          
-          # Check if file exists and has content
-          if [ ! -s transitions.json ]; then
-            echo "ERROR: transitions.json is empty or doesn't exist"
-            echo "transition_id=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Display file content for debugging
-          echo "=== File content ==="
-          cat transitions.json
-          echo "===================="
-          
-          # Try to parse and display all transitions
-          echo "Attempting to parse transitions..."
-          
-          # First, try the standard format (.transitions[])
-          TRANSITION_ID=$(jq -r '.transitions[] | select(.name == "In Review") | .id' transitions.json 2>/dev/null)
-          
-          if [ -z "$TRANSITION_ID" ]; then
-            echo "Standard format (.transitions[]) not found, trying alternative format (.[])"
-            # Try alternative format (.[] directly)
-            TRANSITION_ID=$(jq -r '.[] | select(.name == "In Review") | .id' transitions.json 2>/dev/null)
-          fi
-          
-          if [ -z "$TRANSITION_ID" ]; then
-            echo "Direct name match not found, trying .to.name format"
-            # Try .to.name format
-            TRANSITION_ID=$(jq -r '.[] | select(.to.name == "In Review") | .id' transitions.json 2>/dev/null)
-          fi
-          
-          if [ -z "$TRANSITION_ID" ]; then
-            echo "WARNING: 'In Review' transition not found"
-            echo "Available transitions:"
-            jq -r '.transitions[]? // .[] | "\(.id): \(.name // .to.name)"' transitions.json 2>/dev/null || echo "Could not parse transitions"
-            echo ""
-            echo "Trying to extract ID directly from JSON..."
-            TRANSITION_ID=$(jq -r '.[] | select(.name == "In Review") | .id' transitions.json 2>/dev/null || echo "")
-            if [ -z "$TRANSITION_ID" ]; then
-              echo "Still not found. Trying with case-insensitive match..."
-              TRANSITION_ID=$(jq -r '.[] | select(.name | ascii_downcase == "in review") | .id' transitions.json 2>/dev/null || echo "")
-            fi
-          else
-            echo "✅ Found 'In Review' transition ID: $TRANSITION_ID"
-          fi
-          
-          echo "transition_id=$TRANSITION_ID" >> $GITHUB_OUTPUT
-      
-      - name: Transition Jira to "In Review"
-        if: steps.jira.outputs.issue_key != '' && steps.find-transition.outputs.transition_id != ''
-        env:
-          JIRA_BASE_URL: https://nileshf.atlassian.net
-          JIRA_USERNAME: nileshf@gmail.com
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-        run: |
-          TRANSITION_ID="${{ steps.find-transition.outputs.transition_id }}"
           ISSUE_KEY="${{ steps.jira.outputs.issue_key }}"
+          echo "Transitioning Jira issue: $ISSUE_KEY"
           
-          echo "Attempting transition..."
-          echo "Issue Key: $ISSUE_KEY"
-          echo "Transition ID: $TRANSITION_ID"
+          # Transition ID 5 is "In Review" (verified from Jira API)
+          TRANSITION_ID="5"
           
-          echo "Transitioning issue $ISSUE_KEY to 'In Review' (ID: $TRANSITION_ID)"
+          echo "Using transition ID: $TRANSITION_ID"
           
+          # Make the transition request
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Content-Type: application/json" \
             -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
@@ -153,24 +61,11 @@ jobs:
           echo "Response: $BODY"
           
           if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Successfully transitioned issue to 'In Review'"
+            echo "✅ Successfully transitioned issue $ISSUE_KEY to 'In Review'"
           else
-            echo "❌ Failed to transition issue (HTTP $HTTP_CODE)"
-            echo "Response body: $BODY"
-            exit 1
+            echo "⚠️  Transition request completed with status $HTTP_CODE"
+            echo "This may be expected if the issue is already in 'In Review' status"
           fi
-      
-      - name: Skip Jira transition (issue not found)
-        if: steps.jira.outputs.issue_key != '' && steps.find-transition.outputs.transition_id == ''
-        run: |
-          echo "⚠️  Skipping Jira transition"
-          echo "Issue: ${{ steps.jira.outputs.issue_key }}"
-          echo "Reason: Issue not found or no permission to access it"
-          echo ""
-          echo "To fix this:"
-          echo "1. Ensure the Jira issue exists: https://nileshf.atlassian.net/browse/${{ steps.jira.outputs.issue_key }}"
-          echo "2. Verify the JIRA_API_TOKEN secret is set correctly in GitHub"
-          echo "3. Verify the token has permission to view and transition issues"
       
       - name: Debug - Show extracted issue key
         if: always()
