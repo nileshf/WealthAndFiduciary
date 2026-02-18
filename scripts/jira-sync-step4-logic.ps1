@@ -176,10 +176,31 @@ foreach ($line in $lines) {
 
 if ($statusUpdates -eq 0) {
     Write-Host "No status updates needed" -ForegroundColor Green
-    $global:Step4Result = 0
-    return 0
 }
 
 Write-Host "`nStep 4 completed successfully ($statusUpdates status update(s))" -ForegroundColor Green
+
+# Generate spec analysis documents
+Write-Host "`nGenerating spec analysis documents..." -ForegroundColor Cyan
+$specAnalysisScript = ".kiro/scripts/jira-sync-step4-spec-analysis.ps1"
+if (Test-Path $specAnalysisScript) {
+    & $specAnalysisScript `
+        -JiraBaseUrl $JiraBaseUrl `
+        -JiraEmail $JiraEmail `
+        -JiraToken $JiraToken `
+        -ServiceName $ServiceName `
+        -TaskFile $TaskFile `
+        -ProjectKey $ProjectKey
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Spec analysis completed successfully" -ForegroundColor Green
+    } else {
+        Write-Host "Spec analysis completed with warnings" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Spec analysis script not found: $specAnalysisScript" -ForegroundColor Yellow
+}
+
 $global:Step4Result = 0
 return 0
+
