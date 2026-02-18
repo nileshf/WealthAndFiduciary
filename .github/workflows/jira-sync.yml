@@ -3,6 +3,8 @@ name: Jira Issue Sync
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
+  pull_request_review:
+    types: [submitted]
 
 jobs:
   sync-jira-status:
@@ -14,9 +16,14 @@ jobs:
       
       - name: Extract Jira issue key
         id: jira
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
         run: |
-          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          else
+            BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          fi
+          
           echo "Branch name: $BRANCH_NAME"
           
           # Try multiple patterns to extract issue key
@@ -40,32 +47,47 @@ jobs:
         run: |
           echo "=== Jira Transition Step ==="
           echo "Issue Key: '$ISSUE_KEY'"
-          echo "PR Action: ${{ github.event.action }}"
-          echo "PR Merged: ${{ github.event.pull_request.merged }}"
-          echo "Token length: ${#JIRA_API_TOKEN}"
+          echo "Event: ${{ github.event_name }}"
           
-          # Determine target transition based on PR action
+          # Determine target transition based on event and PR status
           TRANSITION_ID=""
           TRANSITION_NAME=""
           
-          if [ "${{ github.event.action }}" = "opened" ] || [ "${{ github.event.action }}" = "synchronize" ] || [ "${{ github.event.action }}" = "reopened" ]; then
-            # PR created/updated - move to "In Review"
-            TRANSITION_ID="5"
-            TRANSITION_NAME="In Review"
-          elif [ "${{ github.event.action }}" = "closed" ]; then
-            if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
-              # PR merged - move to "Done"
-              TRANSITION_ID="31"
-              TRANSITION_NAME="Done"
-            else
-              # PR closed without merge (rejected) - move to "In Progress"
-              TRANSITION_ID="21"
-              TRANSITION_NAME="In Progress"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR Action: ${{ github.event.action }}"
+            echo "PR Merged: ${{ github.event.pull_request.merged }}"
+            
+            if [ "${{ github.event.action }}" = "opened" ] || [ "${{ github.event.action }}" = "synchronize" ] || [ "${{ github.event.action }}" = "reopened" ]; then
+              # PR created/updated - move to "In Review"
+              TRANSITION_ID="5"
+              TRANSITION_NAME="In Review"
+            elif [ "${{ github.event.action }}" = "closed" ]; then
+              if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+                # PR merged - move to "Done"
+                TRANSITION_ID="31"
+                TRANSITION_NAME="Done"
+              else
+                # PR closed without merge (rejected) - move to "In Progress"
+                TRANSITION_ID="21"
+                TRANSITION_NAME="In Progress"
+              fi
+            fi
+          elif [ "${{ github.event_name }}" = "pull_request_review" ]; then
+            echo "Review State: ${{ github.event.review.state }}"
+            
+            if [ "${{ github.event.review.state }}" = "changes_requested" ]; then
+              # Review requests changes - move to "Changes Requested"
+              TRANSITION_ID="6"
+              TRANSITION_NAME="Changes Requested"
+            elif [ "${{ github.event.review.state }}" = "approved" ]; then
+              # Review approved - move to "Ready to Merge"
+              TRANSITION_ID="4"
+              TRANSITION_NAME="Ready to Merge"
             fi
           fi
           
           if [ -z "$TRANSITION_ID" ]; then
-            echo "⚠️  No transition needed for this action"
+            echo "⚠️  No transition needed for this event"
             exit 0
           fi
           
