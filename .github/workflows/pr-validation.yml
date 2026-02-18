@@ -111,6 +111,13 @@ jobs:
             echo "WARNING: 'In Review' transition not found"
             echo "Available transitions:"
             jq -r '.transitions[]? // .[] | "\(.id): \(.name // .to.name)"' transitions.json 2>/dev/null || echo "Could not parse transitions"
+            echo ""
+            echo "Trying to extract ID directly from JSON..."
+            TRANSITION_ID=$(jq -r '.[] | select(.name == "In Review") | .id' transitions.json 2>/dev/null || echo "")
+            if [ -z "$TRANSITION_ID" ]; then
+              echo "Still not found. Trying with case-insensitive match..."
+              TRANSITION_ID=$(jq -r '.[] | select(.name | ascii_downcase == "in review") | .id' transitions.json 2>/dev/null || echo "")
+            fi
           else
             echo "✅ Found 'In Review' transition ID: $TRANSITION_ID"
           fi
@@ -149,6 +156,7 @@ jobs:
             echo "✅ Successfully transitioned issue to 'In Review'"
           else
             echo "❌ Failed to transition issue (HTTP $HTTP_CODE)"
+            echo "Response body: $BODY"
             exit 1
           fi
       
