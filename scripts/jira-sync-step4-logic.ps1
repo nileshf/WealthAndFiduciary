@@ -133,6 +133,7 @@ Write-Host "`nReading tasks from markdown..." -ForegroundColor Cyan
 $content = Get-Content $TaskFile -Raw
 $lines = $content -split "`n"
 $statusUpdates = 0
+$markdownUpdates = 0
 
 # Process each line
 foreach ($line in $lines) {
@@ -143,43 +144,42 @@ foreach ($line in $lines) {
         
         if ($jiraStatusMap.ContainsKey($key)) {
             $jiraStatus = $jiraStatusMap[$key].status
-            $targetStatus = Get-StatusFromCheckbox $checkbox
             
-            if ($jiraStatus -ne $targetStatus) {
-                # Find transition
-                $transitions = $jiraStatusMap[$key].transitions
-                $transitionId = Get-TransitionId $transitions $targetStatus
-                
-                if ($transitionId) {
-                    # Update Jira status
-                    $transitionUri = "$JiraBaseUrl/rest/api/3/issue/$key/transitions"
-                    $transitionBody = @{
-                        transition = @{ id = $transitionId }
-                    } | ConvertTo-Json
-
-                    try {
-                        Invoke-RestMethod -Uri $transitionUri -Headers $headers -Method Post -Body $transitionBody | Out-Null
-                        Write-Host "  Updated: $key to [$checkbox] ($targetStatus)" -ForegroundColor Yellow
-                        $statusUpdates++
-                    }
-                    catch {
-                        Write-Host "  Failed to update $key" -ForegroundColor Red
-                    }
-                }
-                else {
-                    Write-Host "  No transition available for $key to $targetStatus" -ForegroundColor Yellow
-                }
+            # Map Jira status to checkbox
+            $targetCheckbox = switch ($jiraStatus.ToLower()) {
+                'to do' { ' ' }
+                'in progress' { '-' }
+                'in review' { '-' }
+                'testing' { '~' }
+                'ready to merge' { '~' }
+                'done' { 'x' }
+                default { ' ' }
+            }
+            
+            # If markdown checkbox doesn't match Jira status, update markdown
+            if ($checkbox -ne $targetCheckbox) {
+                $oldLine = $line
+                $newLine = "- [$targetCheckbox] $key - $summary"
+                $content = $content -replace [regex]::Escape($oldLine), $newLine
+                Write-Host "  Updated markdown: $key from [$checkbox] to [$targetCheckbox] (Jira: $jiraStatus)" -ForegroundColor Yellow
+                $markdownUpdates++
             }
         }
     }
 }
 
-if ($statusUpdates -eq 0) {
+# Write updated markdown content
+if ($markdownUpdates -gt 0) {
+    Set-Content -Path $TaskFile -Value $content
+    Write-Host "  Markdown file updated with $markdownUpdates status change(s)" -ForegroundColor Cyan
+}
+
+if ($statusUpdates -eq 0 -and $markdownUpdates -eq 0) {
     Write-Host "No status updates needed" -ForegroundColor Green
     $global:Step4Result = 0
     return 0
 }
 
-Write-Host "`nStep 4 completed successfully ($statusUpdates status update(s))" -ForegroundColor Green
+Write-Host "`nStep 4 completed successfully ($markdownUpdates markdown update(s))" -ForegroundColor Green
 $global:Step4Result = 0
 return 0
