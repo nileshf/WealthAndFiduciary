@@ -36,26 +36,85 @@ jobs:
         if: steps.jira.outputs.issue_key != ''
         id: transitions
         run: |
-          TRANSITIONS=$(curl -s -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
-            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}/transitions?expand=transitions")
-          echo "$TRANSITIONS" > transitions.json
-          echo "transitions=$TRANSITIONS" >> $GITHUB_OUTPUT
+          echo "Fetching transitions for issue: ${{ steps.jira.outputs.issue_key }}"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}/transitions")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response body:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          
+          # Validate response is not empty
+          if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+            echo "ERROR: Empty or null response from Jira API"
+            echo "$BODY" > transitions.json
+            exit 1
+          fi
+          
+          echo "$BODY" > transitions.json
+          echo "transitions=$BODY" >> $GITHUB_OUTPUT
       
       - name: Find In Review transition ID
         if: steps.jira.outputs.issue_key != ''
         id: find-transition
         run: |
-          TRANSITION_ID=$(cat transitions.json | jq -r '.transitions[] | select(.to.name == "In Review") | .id')
+          echo "Looking for 'In Review' transition..."
+          
+          # Check if file exists and has content
+          if [ ! -s transitions.json ]; then
+            echo "ERROR: transitions.json is empty or doesn't exist"
+            echo "transition_id=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Display file content for debugging
+          echo "File content:"
+          cat transitions.json
+          
+          # Display available transitions - handle both .transitions[] and .[] formats
+          echo "Available transitions:"
+          jq -r '.transitions[]? // .[] | .name' transitions.json 2>/dev/null || echo "Could not parse transitions"
+          
+          # Find the transition ID for "In Review" - handle both API response formats
+          TRANSITION_ID=$(jq -r '.transitions[]? // .[] | select(.name == "In Review") | .id' transitions.json 2>/dev/null || echo "")
+          
+          if [ -z "$TRANSITION_ID" ]; then
+            echo "WARNING: 'In Review' transition not found"
+            echo "Trying alternative selector..."
+            TRANSITION_ID=$(jq -r '.[] | select(.to.name == "In Review") | .id' transitions.json 2>/dev/null || echo "")
+          fi
+          
+          if [ -z "$TRANSITION_ID" ]; then
+            echo "WARNING: Still no transition found"
+          else
+            echo "Found 'In Review' transition ID: $TRANSITION_ID"
+          fi
+          
           echo "transition_id=$TRANSITION_ID" >> $GITHUB_OUTPUT
       
       - name: Transition Jira to "In Review"
         if: steps.jira.outputs.issue_key != '' && steps.find-transition.outputs.transition_id != ''
         run: |
+          echo "Transitioning issue ${{ steps.jira.outputs.issue_key }} to 'In Review' (ID: ${{ steps.find-transition.outputs.transition_id }})"
+          
           curl -X POST \
             -H "Content-Type: application/json" \
             -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
             -d "{\"transition\":{\"id\":\"${{ steps.find-transition.outputs.transition_id }}\"}}" \
             "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.jira.outputs.issue_key }}/transitions"
+          
+          echo "Transition completed"
+      
+      - name: Debug - Show extracted issue key
+        if: always()
+        run: |
+          echo "Extracted issue key: ${{ steps.jira.outputs.issue_key }}"
+          echo "Branch name: ${{ github.event.pull_request.head.ref }}"
       
       - name: Add Jira link to PR
         if: steps.jira.outputs.issue_key != ''
