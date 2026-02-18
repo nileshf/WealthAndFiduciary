@@ -1,6 +1,7 @@
 # Search Confluence for pre-commit build errors
 # Usage: .\search-confluence-error.ps1 -ErrorCode CS0161
-# This script searches both Confluence and local error database
+# Note: This script provides local error database lookups and Kiro suggestions
+# For Confluence integration, use Kiro's MCP tools directly
 
 param(
     [Parameter(Mandatory=$true)]
@@ -13,9 +14,6 @@ Write-Host "Searching for error: $ErrorCode" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Confluence Page URL
-$confluenceUrl = "https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041"
-
 # Check local error database
 $localErrorDb = ".kiro/post-mortems/confluence-pre-commit-errors.md"
 if (Test-Path $localErrorDb) {
@@ -25,34 +23,16 @@ if (Test-Path $localErrorDb) {
     $content = Get-Content $localErrorDb -Raw
     
     # Search for the error pattern in the local database
-    if ($content -match "## $ErrorCode -") {
+    if ($content -match "## Updated: .* - $ErrorCode") {
         Write-Host "========================================" -ForegroundColor Cyan
         Write-Host "Found in Local Error Database" -ForegroundColor Cyan
         Write-Host "========================================" -ForegroundColor Cyan
         Write-Host ""
         
-        # Extract the error section using a simpler approach
-        $lines = $content -split "`r?`n"
-        $inErrorSection = $false
-        $errorLines = @()
-        
-        foreach ($line in $lines) {
-            if ($line -match "^## $ErrorCode -") {
-                $inErrorSection = $true
-            }
-            
-            if ($inErrorSection) {
-                $errorLines += $line
-                
-                # Stop when we hit another section header
-                if ($line -match "^## [A-Z]" -and $line -notmatch "^## $ErrorCode -") {
-                    break
-                }
-            }
-        }
-        
-        if ($errorLines.Count -gt 0) {
-            Write-Host ($errorLines -join "`n") -ForegroundColor White
+        # Extract the error section
+        $pattern = "(## Updated: .*? - $ErrorCode.*?)(?=## Updated:|## How to Use|\Z)"
+        if ($content -match $pattern) {
+            Write-Host ($matches[1]) -ForegroundColor White
             Write-Host ""
         }
     }
@@ -199,14 +179,6 @@ switch ($ErrorCode) {
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Confluence Reference" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Confluence Page: $confluenceUrl" -ForegroundColor White
-Write-Host ""
-Write-Host "Search Pattern: $ErrorCode Pre-Commit" -ForegroundColor White
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Next Steps" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
@@ -214,4 +186,8 @@ Write-Host "1. Review the error details above" -ForegroundColor White
 Write-Host "2. Apply the suggested fix to your code" -ForegroundColor White
 Write-Host "3. Run 'dotnet build' to verify the fix" -ForegroundColor White
 Write-Host "4. Commit and push your changes" -ForegroundColor White
+Write-Host ""
+Write-Host "For Confluence integration:" -ForegroundColor Cyan
+Write-Host "  Use Kiro's MCP tools to search Confluence directly" -ForegroundColor White
+Write-Host "  URL: https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9175041" -ForegroundColor White
 Write-Host ""
