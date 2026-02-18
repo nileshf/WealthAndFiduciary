@@ -1,0 +1,309 @@
+Great question! Here's a simple microservice idea that fits the AITooling application and can be demoed in 20 minutes:
+
+## 📊 **ModelMetricsService** - Track AI Model Performance Metrics
+
+### Overview
+A lightweight service that stores and retrieves performance metrics for AI models (accuracy, latency, inference count, etc.). Perfect for demonstrating a complete microservice with SQL Server integration.
+
+### Why This Works for a 20-Minute Demo:
+
+✅ **Simple Domain Model** (3-4 entities):
+- `ModelMetric` - accuracy, latency, inference_count, timestamp
+- `Model` - model_id, name, version
+- `MetricSnapshot` - daily aggregated metrics
+
+✅ **Minimal API Surface** (4-5 endpoints):
+- `POST /api/metrics` - Record a metric
+- `GET /api/metrics/{modelId}` - Get recent metrics
+- `GET /api/metrics/{modelId}/summary` - Get daily summary
+- `GET /api/health` - Health check
+
+✅ **Quick to Build**:
+- No complex business logic
+- Straightforward CRUD operations
+- Perfect for showcasing Clean Architecture
+- Easy to test with sample data
+
+✅ **Demonstrates Key Concepts**:
+- Entity Framework Core with SQL Server
+- Repository pattern
+- CQRS (simple commands/queries)
+- Swagger/OpenAPI documentation
+- Pre-commit checks integration
+- Confluence error logging
+
+### 20-Minute Demo Flow:
+
+1. **Minutes 0-2**: Show the service structure and explain the domain
+2. **Minutes 2-5**: Run pre-commit checks (show error handling system)
+3. **Minutes 5-10**: Demo the API endpoints with Postman/Bruno
+4. **Minutes 10-15**: Show the database schema and data
+5. **Minutes 15-18**: Show Swagger documentation
+6. **Minutes 18-20**: Q&A and wrap-up
+
+### Alternative Ideas (if you prefer something different):
+
+| Service | Complexity | Demo Time |
+|---------|-----------|-----------|
+| **AuditLogService** | Very Simple | 15 min |
+| **ModelRegistryService** | Simple | 20 min |
+| **FeatureStoreService** | Medium | 25 min |
+| **NotificationService** | Simple | 20 min |
+
+---
+
+**My Recommendation**: Go with **ModelMetricsService** - it's:
+- ✅ Relevant to AI/ML context
+- ✅ Easy to understand
+- ✅ Perfect scope for 20 minutes
+- ✅ Showcases all the important patterns
+- ✅ Can be extended later with real ML model integration
+
+Would you like me to scaffold this service for you?
+###############################################################################################################
+I'll walk you through creating the ModelMetricsService step-by-step with detailed explanations for each command.
+
+## Step 1: Create the Project Structure
+
+```powershell
+# Navigate to the AITooling Services directory
+cd C:\AIDemo\WealthAndFiduciary\Applications\AITooling\Services
+
+# Create the main service directory
+mkdir ModelMetricsService
+cd ModelMetricsService
+```
+
+**Why**: We're creating a dedicated folder for the new microservice, following the same structure as SecurityService and DataLoaderService.
+
+---
+
+## Step 2: Create the .NET Projects
+
+```powershell
+# Create Domain project (business logic, entities, no external dependencies)
+dotnet new classlib -n ModelMetricsService.Domain -f net9.0
+
+# Create Application project (CQRS commands/queries, DTOs, interfaces)
+dotnet new classlib -n ModelMetricsService.Application -f net9.0
+
+# Create Infrastructure project (database, repositories, EF Core)
+dotnet new classlib -n ModelMetricsService.Infrastructure -f net9.0
+
+# Create API project (controllers, middleware, startup)
+dotnet new webapi -n ModelMetricsService.Api -f net9.0
+```
+
+**Why**: We're creating 4 separate projects following Clean Architecture:
+- **Domain**: Pure business logic, no framework dependencies
+- **Application**: Use cases (commands/queries), DTOs, validation
+- **Infrastructure**: Database access, external services
+- **Api**: HTTP endpoints, middleware, dependency injection
+
+---
+
+## Step 3: Create the Solution File
+
+```powershell
+# Create a solution file to tie all projects together
+dotnet new sln -n ModelMetricsService
+
+# Add all projects to the solution
+dotnet sln ModelMetricsService.sln add ModelMetricsService.Domain/ModelMetricsService.Domain.csproj
+dotnet sln ModelMetricsService.sln add ModelMetricsService.Application/ModelMetricsService.Application.csproj
+dotnet sln ModelMetricsService.sln add ModelMetricsService.Infrastructure/ModelMetricsService.Infrastructure.csproj
+dotnet sln ModelMetricsService.sln add ModelMetricsService.Api/ModelMetricsService.Api.csproj
+```
+
+**Why**: The solution file allows us to build all projects together and manage dependencies. Adding projects to the solution makes them discoverable by Visual Studio and the CLI.
+
+---
+
+## Step 4: Add NuGet Package Dependencies
+
+```powershell
+# Add Entity Framework Core to Infrastructure project
+dotnet add ModelMetricsService.Infrastructure/ModelMetricsService.Infrastructure.csproj package Microsoft.EntityFrameworkCore
+dotnet add ModelMetricsService.Infrastructure/ModelMetricsService.Infrastructure.csproj package Microsoft.EntityFrameworkCore.SqlServer
+
+# Add MediatR for CQRS pattern to Application project
+dotnet add ModelMetricsService.Application/ModelMetricsService.Application.csproj package MediatR
+
+# Add Swagger/OpenAPI to API project
+dotnet add ModelMetricsService.Api/ModelMetricsService.Api.csproj package Swashbuckle.AspNetCore
+
+# Add logging to API project
+dotnet add ModelMetricsService.Api/ModelMetricsService.Api.csproj package Microsoft.Extensions.Logging
+```
+
+**Why**: 
+- **EF Core + SQL Server**: For database access and ORM
+- **MediatR**: For implementing CQRS pattern (commands/queries)
+- **Swashbuckle**: For automatic Swagger/OpenAPI documentation
+- **Logging**: For structured logging and diagnostics
+
+---
+
+## Step 5: Set Up Project References
+
+```powershell
+# Application depends on Domain
+dotnet add ModelMetricsService.Application/ModelMetricsService.Application.csproj reference ModelMetricsService.Domain/ModelMetricsService.Domain.csproj
+
+# Infrastructure depends on Domain and Application
+dotnet add ModelMetricsService.Infrastructure/ModelMetricsService.Infrastructure.csproj reference ModelMetricsService.Domain/ModelMetricsService.Domain.csproj
+dotnet add ModelMetricsService.Infrastructure/ModelMetricsService.Infrastructure.csproj reference ModelMetricsService.Application/ModelMetricsService.Application.csproj
+
+# API depends on Application and Infrastructure
+dotnet add ModelMetricsService.Api/ModelMetricsService.Api.csproj reference ModelMetricsService.Application/ModelMetricsService.Application.csproj
+dotnet add ModelMetricsService.Api/ModelMetricsService.Api.csproj reference ModelMetricsService.Infrastructure/ModelMetricsService.Infrastructure.csproj
+```
+
+**Why**: This establishes the dependency flow following Clean Architecture:
+- Domain ← Application ← Infrastructure ← Api
+- Dependencies point inward only (no circular dependencies)
+
+---
+
+## Step 6: Create the .env Configuration File
+
+```powershell
+# Create .env file for environment configuration
+New-Item -Path "ModelMetricsService.Api" -Name ".env" -ItemType File -Value @"
+# Database Configuration
+DATABASE_PROVIDER=SqlServer
+SQLSERVER_CONNECTION_STRING=Server=localhost;Database=ModelMetricsService;Trusted_Connection=True;TrustServerCertificate=True;
+
+# Confluence Configuration
+CONFLUENCE_BASE_URL=https://nileshf.atlassian.net
+CONFLUENCE_USER_EMAIL=your-email@example.com
+CONFLUENCE_API_TOKEN=your-api-token
+PRE_COMMIT_FILE_URL=https://nileshf.atlassian.net/wiki/pages/viewpage.action?pageId=YOUR_PAGE_ID
+
+# Logging
+LOG_LEVEL=Information
+"@
+```
+
+**Why**: The .env file stores environment-specific configuration (database connection, API tokens) without committing secrets to version control.
+
+---
+
+## Step 7: Create the Kiro Spec Structure
+
+```powershell
+# Create spec directories for documentation
+mkdir ModelMetricsService.Api\.kiro\specs\model-metrics-service
+mkdir ModelMetricsService.Api\.kiro\pre-commit
+mkdir ModelMetricsService.Api\.kiro\steering
+
+# Create requirements file
+New-Item -Path "ModelMetricsService.Api\.kiro\specs\model-metrics-service" -Name "requirements.md" -ItemType File
+```
+
+**Why**: The Kiro spec structure allows us to document requirements, design decisions, and implementation tasks in a structured way.
+
+---
+
+## Step 8: Build and Verify
+
+```powershell
+# Build the entire solution to verify all projects compile
+dotnet build ModelMetricsService.sln
+
+# Restore NuGet packages
+dotnet restore ModelMetricsService.sln
+```
+
+**Why**: Building verifies that all projects compile correctly and all dependencies are properly configured before we start implementing features.
+
+---
+
+## Step 9: Create Initial Domain Entities
+
+```powershell
+# Create the Domain entities (we'll populate these files next)
+New-Item -Path "ModelMetricsService.Domain\Entities" -ItemType Directory -Force
+New-Item -Path "ModelMetricsService.Domain\Entities\Model.cs" -ItemType File
+New-Item -Path "ModelMetricsService.Domain\Entities\ModelMetric.cs" -ItemType File
+```
+
+**Why**: We're creating the folder structure for domain entities that represent our business model.
+
+---
+
+## Step 10: Create Infrastructure Database Context
+
+```powershell
+# Create Infrastructure folders
+New-Item -Path "ModelMetricsService.Infrastructure\Data" -ItemType Directory -Force
+New-Item -Path "ModelMetricsService.Infrastructure\Repositories" -ItemType Directory -Force
+New-Item -Path "ModelMetricsService.Infrastructure\Data\ModelMetricsDbContext.cs" -ItemType File
+```
+
+**Why**: The Infrastructure layer contains database-specific code. We're creating folders for the DbContext and repositories.
+
+---
+
+## Step 11: Create Application Layer (CQRS)
+
+```powershell
+# Create Application folders for CQRS pattern
+New-Item -Path "ModelMetricsService.Application\Commands" -ItemType Directory -Force
+New-Item -Path "ModelMetricsService.Application\Queries" -ItemType Directory -Force
+New-Item -Path "ModelMetricsService.Application\DTOs" -ItemType Directory -Force
+New-Item -Path "ModelMetricsService.Application\Interfaces" -ItemType Directory -Force
+```
+
+**Why**: The Application layer organizes code by CQRS pattern:
+- **Commands**: Write operations (create, update, delete)
+- **Queries**: Read operations (retrieve data)
+- **DTOs**: Data transfer objects for API responses
+- **Interfaces**: Abstractions for repositories and services
+
+---
+
+## Step 12: Create API Controllers
+
+```powershell
+# Create API folders
+New-Item -Path "ModelMetricsService.Api\Controllers" -ItemType Directory -Force
+New-Item -Path "ModelMetricsService.Api\Middleware" -ItemType Directory -Force
+New-Item -Path "ModelMetricsService.Api\Configuration" -ItemType Directory -Force
+```
+
+**Why**: The API layer organizes HTTP endpoints and middleware:
+- **Controllers**: HTTP endpoints
+- **Middleware**: Cross-cutting concerns (logging, error handling)
+- **Configuration**: Dependency injection setup
+
+---
+
+## Summary of Commands
+
+| Step | Command | Purpose |
+|------|---------|---------|
+| 1 | `mkdir` | Create service directory |
+| 2 | `dotnet new` | Create 4 projects (Domain, Application, Infrastructure, Api) |
+| 3 | `dotnet new sln` | Create solution file |
+| 4 | `dotnet add package` | Add NuGet dependencies |
+| 5 | `dotnet add reference` | Set up project dependencies |
+| 6 | `New-Item .env` | Create environment configuration |
+| 7 | `mkdir .kiro` | Create Kiro spec structure |
+| 8 | `dotnet build` | Verify compilation |
+| 9-12 | `New-Item` | Create folder structure for code |
+
+---
+
+## Next Steps
+
+Once you've run these commands, we'll:
+1. **Create Domain Entities** (Model, ModelMetric)
+2. **Create DbContext** (SQL Server database configuration)
+3. **Create CQRS Commands/Queries** (RecordMetricCommand, GetMetricsQuery)
+4. **Create API Controllers** (MetricsController)
+5. **Create Repositories** (MetricRepository)
+6. **Configure Dependency Injection** (Program.cs)
+7. **Run Pre-Commit Checks** (verify everything builds)
+
+Would you like me to proceed with implementing the code for each of these components?
