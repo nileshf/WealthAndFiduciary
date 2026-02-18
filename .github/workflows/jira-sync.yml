@@ -1,0 +1,91 @@
+name: Jira Issue Sync
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  sync-jira-status:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Extract Jira issue key
+        id: jira
+        if: github.event_name == 'pull_request'
+        run: |
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          echo "Branch name: $BRANCH_NAME"
+          
+          # Try multiple patterns to extract issue key
+          ISSUE_KEY=$(echo "$BRANCH_NAME" | grep -oiP '[A-Z]+-\d+' | head -1)
+          
+          if [ -z "$ISSUE_KEY" ]; then
+            echo "No issue key found in branch name"
+            echo "issue_key=" >> $GITHUB_OUTPUT
+          else
+            echo "Extracted issue key: $ISSUE_KEY"
+            echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Transition Jira Issue based on PR Status
+        if: steps.jira.outputs.issue_key != ''
+        env:
+          JIRA_BASE_URL: https://nileshf.atlassian.net
+          JIRA_USERNAME: nileshf@gmail.com
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          ISSUE_KEY: ${{ steps.jira.outputs.issue_key }}
+        run: |
+          echo "=== Jira Transition Step ==="
+          echo "Issue Key: '$ISSUE_KEY'"
+          echo "PR Action: ${{ github.event.action }}"
+          echo "PR Merged: ${{ github.event.pull_request.merged }}"
+          echo "Token length: ${#JIRA_API_TOKEN}"
+          
+          # Determine target transition based on PR action
+          TRANSITION_ID=""
+          TRANSITION_NAME=""
+          
+          if [ "${{ github.event.action }}" = "opened" ] || [ "${{ github.event.action }}" = "synchronize" ] || [ "${{ github.event.action }}" = "reopened" ]; then
+            # PR created/updated - move to "In Review"
+            TRANSITION_ID="5"
+            TRANSITION_NAME="In Review"
+          elif [ "${{ github.event.action }}" = "closed" ]; then
+            if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+              # PR merged - move to "Done"
+              TRANSITION_ID="31"
+              TRANSITION_NAME="Done"
+            else
+              # PR closed without merge (rejected) - move to "In Progress"
+              TRANSITION_ID="21"
+              TRANSITION_NAME="In Progress"
+            fi
+          fi
+          
+          if [ -z "$TRANSITION_ID" ]; then
+            echo "⚠️  No transition needed for this action"
+            exit 0
+          fi
+          
+          echo "Attempting to transition $ISSUE_KEY to '$TRANSITION_NAME' (ID: $TRANSITION_ID)..."
+          
+          # Make the transition request
+          HTTP_CODE=$(curl -s -o /tmp/jira_response.txt -w "%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -u "${JIRA_USERNAME}:${JIRA_API_TOKEN}" \
+            -d "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}" \
+            "${JIRA_BASE_URL}/rest/api/3/issue/${ISSUE_KEY}/transitions")
+          
+          RESPONSE=$(cat /tmp/jira_response.txt)
+          
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $RESPONSE"
+          
+          if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Successfully transitioned $ISSUE_KEY to '$TRANSITION_NAME'"
+          else
+            echo "⚠️  Transition returned HTTP $HTTP_CODE"
+            echo "This may be expected if the issue is already in the target status"
+          fi
