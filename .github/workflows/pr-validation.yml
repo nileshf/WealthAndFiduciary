@@ -53,6 +53,14 @@ jobs:
           echo "Response body:"
           echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
           
+          # Check for permission errors
+          if echo "$BODY" | grep -q "does not exist or you do not have permission"; then
+            echo "⚠️  WARNING: Issue does not exist or no permission to access it"
+            echo "This is expected if the issue hasn't been created in Jira yet"
+            echo "transition_id=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           # Validate response is not empty
           if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
             echo "ERROR: Empty or null response from Jira API"
@@ -110,7 +118,7 @@ jobs:
           echo "transition_id=$TRANSITION_ID" >> $GITHUB_OUTPUT
       
       - name: Transition Jira to "In Review"
-        if: steps.jira.outputs.issue_key != ''
+        if: steps.jira.outputs.issue_key != '' && steps.find-transition.outputs.transition_id != ''
         env:
           JIRA_BASE_URL: https://nileshf.atlassian.net
           JIRA_USERNAME: nileshf@gmail.com
@@ -122,11 +130,6 @@ jobs:
           echo "Attempting transition..."
           echo "Issue Key: $ISSUE_KEY"
           echo "Transition ID: $TRANSITION_ID"
-          
-          if [ -z "$TRANSITION_ID" ]; then
-            echo "ERROR: No transition ID found. Skipping transition."
-            exit 0
-          fi
           
           echo "Transitioning issue $ISSUE_KEY to 'In Review' (ID: $TRANSITION_ID)"
           
@@ -148,6 +151,18 @@ jobs:
             echo "❌ Failed to transition issue (HTTP $HTTP_CODE)"
             exit 1
           fi
+      
+      - name: Skip Jira transition (issue not found)
+        if: steps.jira.outputs.issue_key != '' && steps.find-transition.outputs.transition_id == ''
+        run: |
+          echo "⚠️  Skipping Jira transition"
+          echo "Issue: ${{ steps.jira.outputs.issue_key }}"
+          echo "Reason: Issue not found or no permission to access it"
+          echo ""
+          echo "To fix this:"
+          echo "1. Ensure the Jira issue exists: https://nileshf.atlassian.net/browse/${{ steps.jira.outputs.issue_key }}"
+          echo "2. Verify the JIRA_API_TOKEN secret is set correctly in GitHub"
+          echo "3. Verify the token has permission to view and transition issues"
       
       - name: Debug - Show extracted issue key
         if: always()
