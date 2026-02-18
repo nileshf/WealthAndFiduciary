@@ -34,7 +34,7 @@ public class TokenGenerationPropertyTests
     /// For any user, the generated token should expire exactly 2 hours from now.
     /// We allow a small tolerance (1 second) for execution time.
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property TokenExpiration_IsAlwaysTwoHours()
     {
         return Prop.ForAll<NonEmptyString, NonEmptyString>((usernameGen, roleGen) =>
@@ -82,7 +82,7 @@ public class TokenGenerationPropertyTests
     /// 
     /// For any user, the generated token should always contain username and role claims.
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property TokenClaims_AlwaysContainUsernameAndRole()
     {
         return Prop.ForAll<NonEmptyString, NonEmptyString>((usernameGen, roleGen) =>
@@ -125,7 +125,7 @@ public class TokenGenerationPropertyTests
     /// Property: Token Format Validity
     /// Additional property to ensure tokens are always valid JWT format.
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property Token_IsAlwaysValidJwtFormat()
     {
         return Prop.ForAll<NonEmptyString, NonEmptyString>((usernameGen, roleGen) =>

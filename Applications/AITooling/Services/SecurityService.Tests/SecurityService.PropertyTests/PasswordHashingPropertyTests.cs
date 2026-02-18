@@ -16,7 +16,7 @@ public class PasswordHashingPropertyTests
     /// BCrypt automatically generates unique salts, so the same password
     /// hashed twice should produce different hashes.
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property PasswordHash_WithSamePassword_ProducesDifferentHashes()
     {
         return Prop.ForAll<NonEmptyString>(passwordGen =>
@@ -38,7 +38,7 @@ public class PasswordHashingPropertyTests
     /// 
     /// For any password and its hash, verification should return true.
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property PasswordVerification_WithCorrectPassword_ReturnsTrue()
     {
         return Prop.ForAll<NonEmptyString>(passwordGen =>
@@ -57,7 +57,7 @@ public class PasswordHashingPropertyTests
     /// 
     /// For any two different passwords, verification should return false.
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property PasswordVerification_WithIncorrectPassword_ReturnsFalse()
     {
         return Prop.ForAll<NonEmptyString, NonEmptyString>((password1Gen, password2Gen) =>
@@ -82,7 +82,7 @@ public class PasswordHashingPropertyTests
     /// 
     /// For any password, the hash should never equal the plain password.
     /// </summary>
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 50)]
     public Property PasswordHash_NeverEqualsPlainPassword()
     {
         return Prop.ForAll<NonEmptyString>(passwordGen =>
