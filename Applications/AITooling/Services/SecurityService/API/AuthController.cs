@@ -55,9 +55,6 @@ public class AuthController : ControllerBase
         if (token == null)
             return Unauthorized(new { message = "Invalid credentials" });
 
-        // CS0103 error: undefined variable for testing
-        var testValue = undefinedVariable;
-
         return Ok(new { token });
     }
 }
