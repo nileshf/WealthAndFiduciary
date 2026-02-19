@@ -6,10 +6,10 @@
       ],
       "command": "uvx",
       "env": {
-        "CONFLUENCE_API_TOKEN": "ATATT3xFfGF0LqUSKoTeAr-kOujjQlATxFEr5hI1rJo-oEOPQLNsJqQPM-62UJWcL2oaerMpskqpw8-OzySCwnXpVqxeb9N_ClJxToUXhp9Pk4hUALbJ696ZA47nhy59cSClYufDiW6x0pRWR67bosjx2f6uYQeGF_FBBQr54sr50ZNnaf2TbyU=4B999E17",
+        "CONFLUENCE_API_TOKEN": "ATATT3xFfGF0bS2RqgLuwrADjpgDfw9CxCZuz5r2RtU8vddFyi7Q5Io1pDu2vuFWdUqoEGuISZirBTN4d4VpThnyorvhDG_lRYBBHXJPRJTdgI5QVH3b2GAWQtYqdf3-tTdl252uNkqhFQ9-Ct-ENfCfg7wjJKrcSJP__uAtFg4TUDTD1GuOu1o=6BCC1D6D",
         "CONFLUENCE_URL": "https://nileshf.atlassian.net/wiki",
         "CONFLUENCE_USERNAME": "nileshf@gmail.com",
-        "JIRA_API_TOKEN": "ATATT3xFfGF0mfFT53N4zf-PuGwVMj4JwDe9oenr-iL6Gk5tK1_sdpoAiJzV-ZiQLHNWaUhdYKUnh3NMn0Qbox4SZGSG-yZZdVH_6pUvi2hI1-rieTRir_KB-rsMqHFK_CNxwQb7wWgQZ0PXDhJK4lTeF-O2Grz81eNHlaGOJXTIwYn2iaduohs=CF95E7FD",
+        "JIRA_API_TOKEN": "ATATT3xFfGF04-zLLbyl2zVs4tBpZcHJVjJb3PnMHlR-M0_OyIsFURbNHC0S5MabK8AUZPtiU5cmW1k6RDSvzn3OxFjGw-LQD7YoXgabX7v1BjBZv36aBpr1fJpteaT5x_FL3rxXyx2-YjRZp4llksbOBaZtyNYTx8U8TXhIXuSYCW080-qRHN8=53DA50DB",
         "JIRA_URL": "https://nileshf.atlassian.net",
         "JIRA_USERNAME": "nileshf@gmail.com"
       }
