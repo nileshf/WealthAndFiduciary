@@ -1,0 +1,100 @@
+https://id.atlassian.com/manage-profile/security/api-tokens
+JIRA_API_TOKEN=ATATT3xFfGF04-zLLbyl2zVs4tBpZcHJVjJb3PnMHlR-M0_OyIsFURbNHC0S5MabK8AUZPtiU5cmW1k6RDSvzn3OxFjGw-LQD7YoXgabX7v1BjBZv36aBpr1fJpteaT5x_FL3rxXyx2-YjRZp4llksbOBaZtyNYTx8U8TXhIXuSYCW080-qRHN8=53DA50DB
+CONFLUENCE_API_TOKEN=ATATT3xFfGF0bS2RqgLuwrADjpgDfw9CxCZuz5r2RtU8vddFyi7Q5Io1pDu2vuFWdUqoEGuISZirBTN4d4VpThnyorvhDG_lRYBBHXJPRJTdgI5QVH3b2GAWQtYqdf3-tTdl252uNkqhFQ9-Ct-ENfCfg7wjJKrcSJP__uAtFg4TUDTD1GuOu1o=6BCC1D6D
+
+change mcp
+.\scripts\update-env-tokens.ps1   (this will update all .env)
+
+
+SETUP GITHUB
+Do you have GitHub secrets configured for Jira integration? Please confirm:
+
+Is JIRA_BASE_URL secret set in GitHub? (should be https://nileshf.atlassian.net)
+Is JIRA_USER_EMAIL secret set in GitHub? (should be your Jira email)
+Is JIRA_API_TOKEN secret set in GitHub? (your Jira API token)
+You can check this in GitHub repo → Settings → Secrets and variables → Actions
+
+update all .env
+
+
+go to C:\AIDemo\WealthAndFiduciary
+open WealthAndFiduciary.code-workspace
+
+kiro mcp copy paste the API_Tokens and start it
+change the 4 env files 
+
+1/ open jira delete tasks except 2
+
+
+
+# Run all steps for all services
+.\scripts\run-all-steps.ps1
+
+[ ] = Jira status is TO DO
+[-] = Jira status is IN PROGRESS or IN REVIEW
+[~] = Jira status is TESTING or READY TO MERGE
+[x] = Jira status is DONE
+
+feat: - new feature
+fix: - bug fix
+docs: - documentation
+refactor: - code refactoring
+test: - tests
+chore: - maintenance tasks
+
+# Run all steps for a specific service
+.\scripts\run-all-steps.ps1 -ServiceName "SecurityService"
+
+# Run a single step for all services
+.\scripts\jira-sync-step1-pull-missing-tasks.ps1
+
+.\scripts\jira-sync-step2-push-new-tasks.ps1     
+
+.\scripts\jira-sync-step3-markdown-to-jira.ps1
+
+.\scripts\jira-sync-step4-jira-to-markdown.ps1
+
+# Run a single step for a specific service
+.\scripts\jira-sync-step1-pull-missing-tasks.ps1 -ServiceName "DataLoaderService"
+
+# BUG FLOW
+C:\AIDemo\WealthAndFiduciary> .\run-pre-commit-checks.ps1
+
+C:\AIDemo\WealthAndFiduciary\Applications\AITooling\Services\DataLoaderService
+
+ok run DataLoaderService and SecurityService in the background
+what ports are they running on for swagger
+
+
+C:\AIDemo\WealthAndFiduciary> git commit -m "chore: WEALTHFID-345 - introduce a bug"
+
+
+Done. The workflow now correctly:
+
+PR Created/Updated → "In Review" (ID: 5)
+Review Approved → "Ready to Merge" (ID: 4)
+PR Merged → "Done" (ID: 31)
+Changes Requested → "Changes Requested" (ID: 6)
+PR Closed (not merged) → "In Progress" (ID: 21)
+
+I want to add a new entity to the Security service, which will allow a csv file with user names to be loaded from a csv file, this must be triggered via API and shown in swagger.
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoidGVzdHVzZXIiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJBZG1pbiIsImV4cCI6MTc3MTQxNjY4NiwiaXNzIjoiU2VjdXJpdHlTZXJ2aWNlIiwiYXVkIjoiTWljcm9zZXJ2aWNlc0FwcCJ9.SAwabTlU-93fosbj52x258E9JNBBnk8aSFHHPC0kfM4
+
+
+
+
+
+
+
+
+
+pull the requirements from https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9994241/requirements
+pull the design from https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/10289160/design-no-kiro
+
+dotnet run --project CleanArchitectureDemo.Api/CleanArchitectureDemo.Api.csproj
+
+
+
+
+https://nileshf.atlassian.net/wiki/spaces/WEALTHFID/pages/9994241/requirements

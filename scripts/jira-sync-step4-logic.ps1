@@ -176,10 +176,9 @@ if ($markdownUpdates -gt 0) {
 
 if ($statusUpdates -eq 0 -and $markdownUpdates -eq 0) {
     Write-Host "No status updates needed" -ForegroundColor Green
-    $global:Step4Result = 0
-    return 0
 }
 
 Write-Host "`nStep 4 completed successfully ($markdownUpdates markdown update(s))" -ForegroundColor Green
 $global:Step4Result = 0
 return 0
+
